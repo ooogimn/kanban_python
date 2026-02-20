@@ -1,0 +1,19 @@
+.gigaide
+.idea
+.idea
+.vscode
+.cursor
+__pycache__
+.env
+.env.example
+.env.prod
+.env.prod.example
+.venv
+env/
+venv/
+
+/staticfiles/
+/media/
+
+# Tauri/Rust build output
+frontend/src-tauri/target/

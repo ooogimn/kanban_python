@@ -1,26 +1,60 @@
 Lsy
 http://localhost:5173/login
 
-git add, git commit, git push
+1. git add, git commit, git push
+git push -u origin main --force                   # --force перезапишет ветку main на GitHub вашей локальной историей  
+git log main -1 --stat                            # Посмотреть, какие файлы в последнем коммите
+git add .                                           # Добавить все файлы в текущую директорию
+git commit -m "message"                             # Создать коммит с сообщением
+git push                                           # Запушить коммиты на GitHub  
+git status                                        # Посмотреть статус git
+2. сделать у себя в терминале (в папке проекта):
+Посмотреть, какие файлы в последнем коммите:
+   git log main -1 --stat
+Если в списке только 2 файла — значит на GitHub именно то, что в коммите.
+Добавить всё остальное и сделать новый коммит, затем отправить:
+   git add .   git status
+Проверьте по
+   git status 
+что добавляются нужные папки (backend, frontend и т.д.). Если что-то лишнее попало (venv, pycache, .env) —
+поправьте .gitignore, затем снова 
+   git add ..
+Потом:
+   git commit -m "Add all project files"   
+   git push origin main
+После этого на GitHub должна появиться полная версия проекта. Если пришлёте вывод 
+   git log main -1 --stat 
+и (по желанию) 
+   git status 
+после 
+   git add .
+, можно точечно подсказать, что ещё поправить.
 
+```bash cd ..
 cd ..
 python -m venv .venv --clear
 source .venv/Scripts/activate
+```
+
+```bash backend
 cd backend
 pip install -r requirements.txt
 python manage.py makemigrations
 python manage.py migrate
 python manage.py check
 python manage.py runserver
+```
 
+```bash   frontend
 cd frontend
 npm install
 npm run build
 npm run preview
 npm run dev
 npm run desktop
+```
 
-Тестовый запуск:
+6. Тестовый запуск:
 Bash
 docker-compose down  # Остановите Dev
 docker-compose -f docker-compose.prod.yml up --build
@@ -29,13 +63,10 @@ docker-compose -f docker-compose.prod.yml up --build
 Bash
 docker-compose -f docker-compose.prod.yml down
 docker-compose up -d  # Возвращаемся к нормальной работе
-
-
 Для локального запуска продакшен-стека текущего .env.prod достаточно. Запуск:
 docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 Если нужно, могу подсказать, как проверить, что контейнеры поднялись и бэкенд отвечает.
 как
-
 Как проверить, что продакшен-стек поднялся и бэкенд отвечает:
 1. Запустить стек
 docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
@@ -43,16 +74,6 @@ docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 docker-compose -f docker-compose.prod.yml ps
 Все сервисы (db, redis, backend, nginx) должны быть в статусе Up.
 3. Логи бэкенда (если что-то не работает)
-
-
-
-
-
-Будет создан .exe (или .app на macOS) в frontend/src-tauri/target/release/.
-
-
-
-
 
 ===================================================================================================
 

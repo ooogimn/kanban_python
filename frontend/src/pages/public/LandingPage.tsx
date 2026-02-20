@@ -4,16 +4,17 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { blogApi } from '../../api/blog';
 
-import heroImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0008.jpg';
-import missionImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0001.jpg';
-import philosophyImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0002.jpg';
-import visualizationImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0003.jpg';
-import timeImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0004.jpg';
-import officeImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0005.jpg';
-import analyticsImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0006.jpg';
-import aiImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0007.jpg';
-import techImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0009.jpg';
-import earlyAccessImage from '../../../../INFO_PROJECT/ilovepdf_pages-to-jpg (1)/LukintreLab_OS_The_Digital_Nervous_System_page-0010.jpg';
+// Изображения лендинга: положите файлы в frontend/public/landing/ (имена: hero.jpg, mission.jpg, philosophy.jpg, visualization.jpg, time.jpg, office.jpg, analytics.jpg, ai.jpg, tech.jpg, early-access.jpg)
+const heroImage = '/landing/hero.jpg';
+const missionImage = '/landing/mission.jpg';
+const philosophyImage = '/landing/philosophy.jpg';
+const visualizationImage = '/landing/visualization.jpg';
+const timeImage = '/landing/time.jpg';
+const officeImage = '/landing/office.jpg';
+const analyticsImage = '/landing/analytics.jpg';
+const aiImage = '/landing/ai.jpg';
+const techImage = '/landing/tech.jpg';
+const earlyAccessImage = '/landing/early-access.jpg';
 
 const sections = [
   {

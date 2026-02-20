@@ -1,0 +1,55 @@
+# Django
+Django==5.0.1
+gunicorn>=21.0.0
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-environ==0.11.2
+django-filter>=24.1
+# Real-time (WebSocket): Django Channels + Redis
+channels[daphne]==4.0.0
+channels-redis==4.1.0
+
+# Database
+# Используем psycopg3 (psycopg) вместо psycopg2 для лучшей поддержки кодировок на Windows
+psycopg[binary]>=3.3.0
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+PyJWT==2.8.0
+djoser>=2.2.0
+
+# Async tasks
+celery==5.3.4
+redis==5.0.1
+
+# Integrations
+gspread==5.12.0
+google-auth==2.25.2
+google-auth-oauthlib==1.2.0
+python-telegram-bot==20.7
+# Telegram Bot (aiogram 3)
+aiogram>=3.0
+requests==2.31.0
+icalendar==5.0.11
+
+# Utilities
+pydantic>=2.5.3
+python-dateutil>=2.9.0
+pytz>=2024.2
+reportlab==4.0.7
+openpyxl==3.1.2
+
+# Development
+pytest==7.4.4
+pytest-django==4.7.0
+pytest-cov==4.1.0
+black==23.12.1
+ruff==0.1.9
+isort==5.13.2
+django-debug-toolbar==4.2.0
+
+# API Documentation
+drf-spectacular==0.26.5
+
+# PDF generation (invoices)
+weasyprint>=61.0

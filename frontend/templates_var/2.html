@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusFlow: Архитектурная Документация + AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Markdown parser for AI responses -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Chart Container Styling per requirements */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        /* Custom Scrollbar for panels */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Animation utilities */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .nav-active {
+            border-bottom: 2px solid #3b82f6;
+            color: #1d4ed8;
+            font-weight: 600;
+        }
+
+        /* AI Chat Widget Styling */
+        .chat-widget {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .chat-window {
+            position: fixed;
+            bottom: 6rem;
+            right: 2rem;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            z-index: 99;
+            display: flex;
+            flex-direction: column;
+            transform-origin: bottom right;
+            transition: all 0.3s ease;
+        }
+
+        .chat-hidden {
+            opacity: 0;
+            transform: scale(0.9);
+            pointer-events: none;
+        }
+
+        .ai-message {
+            background-color: #f1f5f9;
+            color: #334155;
+            border-radius: 1rem 1rem 1rem 0;
+        }
+
+        .user-message {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 1rem 1rem 0 1rem;
+        }
+
+        .typing-dot {
+            animation: typing 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        /* Markdown Styles in Chat/Modal */
+        .prose pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .prose code {
+            color: #ef4444;
+            background: #fee2e2;
+            padding: 0.2em 0.4em;
+            border-radius: 0.25rem;
+            font-size: 0.85em;
+        }
+
+        .prose pre code {
+            color: inherit;
+            background: transparent;
+            padding: 0;
+        }
+    </style>
+    <!-- Chosen Palette: Warm Neutrals & Corporate Blue (Slate/Blue/White) -->
+    <!-- Gemini Integration: 
+         1. AI Architect Chat: Context-aware Q&A using system prompt with architecture details.
+         2. Code Generator: Generates Django model code from JSON definitions.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-100">
+
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-network-wired text-blue-600 text-2xl mr-3"></i>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">NexusFlow <span
+                            class="text-slate-400 font-normal text-sm">| Architecture Docs</span></span>
+                </div>
+                <div class="hidden md:flex space-x-8 items-center" id="nav-menu">
+                    <button onclick="navTo('overview')"
+                        class="nav-item nav-active px-3 py-2 text-sm transition-colors hover:text-blue-600"
+                        data-target="overview">Обзор</button>
+                    <button onclick="navTo('data')"
+                        class="nav-item px-3 py-2 text-sm transition-colors hover:text-blue-600" data-target="data">База
+                        Данных</button>
+                    <button onclick="navTo('integrations')"
+                        class="nav-item px-3 py-2 text-sm transition-colors hover:text-blue-600"
+                        data-target="integrations">Интеграции</button>
+                    <button onclick="navTo('simulation')"
+                        class="nav-item px-3 py-2 text-sm transition-colors hover:text-blue-600"
+                        data-target="simulation">Демо Дашборда</button>
+                    <button onclick="navTo('roadmap')"
+                        class="nav-item px-3 py-2 text-sm transition-colors hover:text-blue-600"
+                        data-target="roadmap">План (AI Prompts)</button>
+                </div>
+                <!-- Mobile menu button placeholder -->
+                <div class="flex items-center md:hidden">
+                    <button class="text-slate-500 hover:text-slate-700"
+                        onclick="alert('Пожалуйста, используйте устройство с большим экраном для лучшего опыта.')">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-screen relative">
+
+        <!-- SECTION: OVERVIEW -->
+        <section id="overview" class="view-section fade-in">
+            <div class="text-center mb-10">
+                <h1 class="text-4xl font-extrabold text-slate-900 mb-4">Корпоративная Система "ERP-lite"</h1>
+                <p class="text-lg text-slate-600 max-w-3xl mx-auto">
+                    Архитектура единого цифрового пространства для управления офисом.
+                    Ключевая концепция: <span class="font-semibold text-blue-600">"Всё есть Задача"</span>.
+                </p>
+                <div
+                    class="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-full text-blue-700 text-sm font-medium">
+                    <i class="fas fa-sparkles text-yellow-500 mr-2"></i> Powered by Gemini AI
+                </div>
+            </div>
+
+            <!-- Concept Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                    <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 mb-4">
+                        <i class="fas fa-layer-group text-xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Единое Ядро</h3>
+                    <p class="text-slate-500 text-sm">Календарь, Канбан и Гант — это просто разные визуальные
+                        представления (Views) одной базы данных задач.</p>
+                </div>
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                    <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center text-green-600 mb-4">
+                        <i class="fas fa-sync text-xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Sync & Replica</h3>
+                    <p class="text-slate-500 text-sm">Асинхронная синхронизация с Google Sheets для отчетов. Данные
+                        хранятся в Postgres, но дублируются в таблицы для аналитики.</p>
+                </div>
+                <div
+                    class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+                    <div
+                        class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 mb-4">
+                        <i class="fas fa-robot text-xl"></i>
+                    </div>
+                    <h3 class="font-bold text-lg mb-2">Экосистема</h3>
+                    <p class="text-slate-500 text-sm">Веб, Десктоп (Electron) и Telegram Mini App связаны единым API.
+                        Авторизация через Telegram.</p>
+                </div>
+            </div>
+
+            <!-- Tech Stack Visualization -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-8">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800">Технологический Стек</h2>
+                    <p class="text-slate-500 mt-2">Визуализация компонентов системы.</p>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-8 items-center">
+                    <!-- Legend/List -->
+                    <div class="w-full md:w-1/2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                            <i class="fab fa-python text-yellow-500 text-xl w-8"></i>
+                            <div>
+                                <div class="font-bold text-sm">Backend</div>
+                                <div class="text-xs text-slate-500">Django 5.0 + DRF</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                            <i class="fab fa-react text-blue-400 text-xl w-8"></i>
+                            <div>
+                                <div class="font-bold text-sm">Frontend</div>
+                                <div class="text-xs text-slate-500">React + TS + Tailwind</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                            <i class="fas fa-database text-indigo-500 text-xl w-8"></i>
+                            <div>
+                                <div class="font-bold text-sm">Database</div>
+                                <div class="text-xs text-slate-500">PostgreSQL + Redis</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                            <i class="fab fa-telegram text-sky-500 text-xl w-8"></i>
+                            <div>
+                                <div class="font-bold text-sm">Telegram</div>
+                                <div class="text-xs text-slate-500">Aiogram + TMA</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                            <i class="fab fa-google text-green-500 text-xl w-8"></i>
+                            <div>
+                                <div class="font-bold text-sm">External</div>
+                                <div class="text-xs text-slate-500">Google Sheets API</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center p-3 bg-slate-50 rounded-lg">
+                            <i class="fas fa-desktop text-slate-700 text-xl w-8"></i>
+                            <div>
+                                <div class="font-bold text-sm">Desktop</div>
+                                <div class="text-xs text-slate-500">Electron / Tauri</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="w-full md:w-1/2">
+                        <div class="chart-container">
+                            <canvas id="stackChart"></canvas>
+                        </div>
+                        <p class="text-center text-xs text-slate-400 mt-2">Распределение сложности компонентов</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: DATA ARCHITECTURE -->
+        <section id="data" class="view-section hidden fade-in">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">Структура Базы Данных</h2>
+                <p class="text-slate-600 mt-2">
+                    Интерактивный навигатор по моделям данных Django. Выберите модель слева, чтобы увидеть её поля и
+                    связи.
+                </p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6 h-[600px]">
+                <!-- Model List -->
+                <div
+                    class="w-full lg:w-1/4 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+                    <div class="p-4 bg-slate-50 border-b border-slate-100 font-semibold text-slate-700">
+                        Модели (Models)
+                    </div>
+                    <div class="flex-1 overflow-y-auto custom-scroll p-2 space-y-2" id="model-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Model Details -->
+                <div
+                    class="w-full lg:w-3/4 bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col relative">
+                    <div id="model-detail-content" class="h-full">
+                        <!-- Dynamic Content -->
+                        <div class="flex items-center justify-center h-full text-slate-400 flex-col">
+                            <i class="fas fa-mouse-pointer text-4xl mb-4 opacity-50"></i>
+                            <p>Выберите модель для просмотра деталей</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: INTEGRATIONS -->
+        <section id="integrations" class="view-section hidden fade-in">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-slate-800">Логика Интеграций</h2>
+                <p class="text-slate-600 mt-2">Визуализация ключевых процессов: Синхронизация с Google Sheets и Telegram
+                    Auth.</p>
+            </div>
+
+            <!-- Integration Tabs -->
+            <div class="flex space-x-4 border-b border-slate-200 mb-6">
+                <button onclick="switchIntegration('gsheets')"
+                    class="int-tab active-int px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600"
+                    id="btn-gsheets">Google Sheets Sync</button>
+                <button onclick="switchIntegration('telegram')"
+                    class="int-tab px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-700"
+                    id="btn-telegram">Telegram Bot</button>
+            </div>
+
+            <!-- Google Sheets Flow -->
+            <div id="flow-gsheets" class="int-content">
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Принцип:</strong> Приложение не читает из Sheets (медленно). Оно пишет в них (Replica) для
+                    отчетов.
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch relative">
+                    <!-- Step 1 -->
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200 relative z-10">
+                        <div
+                            class="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 text-white rounded-full flex items-center justify-center font-bold">
+                            1</div>
+                        <h4 class="font-bold text-slate-700 mb-2">Django Signal</h4>
+                        <p class="text-xs text-slate-500 mb-2">Событие: <code>post_save</code></p>
+                        <div class="bg-slate-100 p-2 rounded text-xs font-mono text-slate-600">
+                            Task.save() -> trigger
+                        </div>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="hidden md:flex items-center justify-center text-slate-300">
+                        <i class="fas fa-arrow-right text-2xl"></i>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200 relative z-10">
+                        <div
+                            class="absolute -top-3 -right-3 w-8 h-8 bg-yellow-500 text-white rounded-full flex items-center justify-center font-bold">
+                            2</div>
+                        <h4 class="font-bold text-slate-700 mb-2">Celery Task</h4>
+                        <p class="text-xs text-slate-500 mb-2">Очередь: Redis</p>
+                        <div class="bg-slate-100 p-2 rounded text-xs font-mono text-slate-600">
+                            queue.push(sync_data)
+                        </div>
+                    </div>
+
+                    <!-- Arrow -->
+                    <div class="hidden md:flex items-center justify-center text-slate-300">
+                        <i class="fas fa-arrow-right text-2xl"></i>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="bg-white p-5 rounded-lg shadow-sm border border-slate-200 relative z-10">
+                        <div
+                            class="absolute -top-3 -right-3 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">
+                            3</div>
+                        <h4 class="font-bold text-slate-700 mb-2">Google API</h4>
+                        <p class="text-xs text-slate-500 mb-2">Библиотека: <code>gspread</code></p>
+                        <div class="bg-slate-100 p-2 rounded text-xs font-mono text-slate-600">
+                            Worksheet.update_cell()
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telegram Flow -->
+            <div id="flow-telegram" class="int-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-sky-600 mb-3"><i class="fab fa-telegram-plane mr-2"></i>Auth Flow</h3>
+                        <ul class="space-y-3 text-sm text-slate-600">
+                            <li class="flex items-start"><i class="fas fa-check text-green-500 mt-1 mr-2"></i>
+                                Пользователь нажимает <code>/start</code>.</li>
+                            <li class="flex items-start"><i class="fas fa-check text-green-500 mt-1 mr-2"></i> Бот
+                                генерирует временный код.</li>
+                            <li class="flex items-start"><i class="fas fa-check text-green-500 mt-1 mr-2"></i>
+                                Пользователь вводит код в Web App.</li>
+                            <li class="flex items-start"><i class="fas fa-link text-blue-500 mt-1 mr-2"></i> Связь:
+                                <code>TelegramID</code> ↔ <code>DjangoUser</code>.
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-sky-600 mb-3"><i class="fas fa-mobile-alt mr-2"></i>Mini App</h3>
+                        <p class="text-sm text-slate-600 mb-2">WebView внутри чата.</p>
+                        <div class="bg-slate-100 p-3 rounded text-xs font-mono text-slate-500">
+                            Start Param -> Auth Token -> Auto Login
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-sky-600 mb-3"><i class="fas fa-bell mr-2"></i>Notifications</h3>
+                        <div class="space-y-2">
+                            <div class="bg-slate-50 p-2 rounded border border-slate-100 text-xs">
+                                <strong>Бот:</strong> "Новая задача: Отчет Q1"
+                            </div>
+                            <div class="bg-slate-50 p-2 rounded border border-slate-100 text-xs">
+                                <strong>Кнопка:</strong> [Завершить задачу]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: DASHBOARD SIMULATION -->
+        <section id="simulation" class="view-section hidden fade-in">
+            <div class="mb-8 flex justify-between items-end">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Демонстрация Дашборда</h2>
+                    <p class="text-slate-600 mt-2">Симуляция ответа API <code>/api/dashboard/overview/</code>.</p>
+                </div>
+                <button
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition shadow-sm"
+                    onclick="randomizeDashboard()">
+                    <i class="fas fa-sync-alt mr-2"></i>Обновить данные
+                </button>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div class="text-slate-400 text-xs uppercase font-bold mb-1">Активные задачи</div>
+                    <div class="text-3xl font-bold text-slate-800" id="kpi-active">24</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div class="text-slate-400 text-xs uppercase font-bold mb-1">Просрочено</div>
+                    <div class="text-3xl font-bold text-red-500" id="kpi-overdue">3</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div class="text-slate-400 text-xs uppercase font-bold mb-1">События сегодня</div>
+                    <div class="text-3xl font-bold text-blue-500" id="kpi-events">5</div>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div class="text-slate-400 text-xs uppercase font-bold mb-1">Завершено</div>
+                    <div class="text-3xl font-bold text-green-500" id="kpi-completed">12</div>
+                </div>
+            </div>
+
+            <!-- Burn-down Chart -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-800 mb-4">График сгорания задач (Burn-down)</h3>
+                    <div class="chart-container">
+                        <canvas id="burndownChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Calendar Events (Mini) -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-800 mb-4">Ближайшие события</h3>
+                    <div class="space-y-4" id="event-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: ROADMAP / PROMPTS -->
+        <section id="roadmap" class="view-section hidden fade-in">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-slate-800">План Реализации (Cursor AI)</h2>
+                <p class="text-slate-600 mt-2">Последовательность промптов для генерации кода проекта.</p>
+            </div>
+
+            <div class="relative border-l-2 border-slate-200 ml-4 space-y-8">
+                <!-- Step 1 -->
+                <div class="ml-6 relative">
+                    <div
+                        class="absolute -left-9 bg-slate-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white">
+                        1</div>
+                    <h3 class="font-bold text-lg text-slate-800">Инициализация Django</h3>
+                    <div class="bg-slate-800 text-slate-200 p-4 rounded-lg mt-2 text-sm font-mono shadow-inner">
+                        "Create a Django project named 'nexus_core'. Use pipenv. Configure PostgreSQL... Create custom
+                        User model..."
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="ml-6 relative">
+                    <div
+                        class="absolute -left-9 bg-slate-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white">
+                        2</div>
+                    <h3 class="font-bold text-lg text-slate-800">Модели Задач и Канбана</h3>
+                    <div class="bg-slate-800 text-slate-200 p-4 rounded-lg mt-2 text-sm font-mono shadow-inner">
+                        "Create an app 'tasks'. Define models: Project, KanbanColumn, Task. Add 'position' field...
+                        Create serializers..."
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="ml-6 relative">
+                    <div
+                        class="absolute -left-9 bg-slate-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white">
+                        3</div>
+                    <h3 class="font-bold text-lg text-slate-800">Google Sheets Service</h3>
+                    <div class="bg-slate-800 text-slate-200 p-4 rounded-lg mt-2 text-sm font-mono shadow-inner">
+                        "Write a Python service class 'GoogleSheetsSync' using 'gspread'... Use Celery... Connect to
+                        post_save signal."
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="ml-6 relative">
+                    <div
+                        class="absolute -left-9 bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white">
+                        4</div>
+                    <h3 class="font-bold text-lg text-slate-800">Frontend Gantt</h3>
+                    <div class="bg-slate-800 text-slate-200 p-4 rounded-lg mt-2 text-sm font-mono shadow-inner">
+                        "Create a Gantt Chart component using 'dhtmlx-gantt' or 'frappe-gantt'. Fetch data from
+                        /api/projects/:id/gantt/..."
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Features -->
+            <div class="mt-12 bg-indigo-50 rounded-xl p-6 border border-indigo-100">
+                <h3 class="font-bold text-indigo-900 mb-4"><i class="fas fa-lightbulb mr-2 text-yellow-500"></i>Идеи на
+                    будущее (Features)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded shadow-sm">
+                        <div class="font-bold text-slate-800 mb-1">AI Assistant</div>
+                        <p class="text-xs text-slate-500">Summarize задач и авто-назначение сотрудников.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm">
+                        <div class="font-bold text-slate-800 mb-1">Focus Mode</div>
+                        <p class="text-xs text-slate-500">Таймер Pomodoro с блокировкой уведомлений.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded shadow-sm">
+                        <div class="font-bold text-slate-800 mb-1">Finance Module</div>
+                        <p class="text-xs text-slate-500">Расчет стоимости проекта на основе TimeLogs.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- AI Chat Components -->
+    <!-- Chat Trigger Button -->
+    <button onclick="toggleChat()"
+        class="chat-widget bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition transform hover:scale-110">
+        <i class="fas fa-robot text-2xl"></i>
+    </button>
+
+    <!-- Chat Window -->
+    <div id="chat-window" class="chat-window chat-hidden">
+        <div class="bg-blue-600 p-4 rounded-t-2xl flex justify-between items-center text-white">
+            <div class="flex items-center">
+                <i class="fas fa-robot mr-2"></i>
+                <span class="font-bold">AI Архитектор</span>
+            </div>
+            <button onclick="toggleChat()" class="text-blue-100 hover:text-white"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scroll text-sm">
+            <div class="ai-message p-3 shadow-sm">
+                Привет! Я знаю всё про архитектуру NexusFlow. Спроси меня о базе данных, интеграциях или API!
+            </div>
+        </div>
+
+        <div class="p-3 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+            <div class="flex space-x-2">
+                <input type="text" id="chat-input" placeholder="Задайте вопрос..."
+                    class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    onkeypress="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()"
+                    class="bg-blue-600 text-white rounded-lg px-3 hover:bg-blue-700 transition">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Generation Modal -->
+    <div id="code-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 z-[110] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[85vh]">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <div class="flex items-center text-slate-800">
+                    <i class="fas fa-code text-blue-600 mr-2"></i>
+                    <h3 class="font-bold" id="modal-title">AI Generated Code</h3>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i
+                        class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-0 flex-1 overflow-y-auto custom-scroll bg-[#1e293b] text-slate-200 font-mono text-sm relative"
+                id="modal-code-area">
+                <!-- Code goes here -->
+                <div class="flex flex-col items-center justify-center h-64 space-y-4" id="loading-state">
+                    <div class="flex space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                        <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-100"></div>
+                        <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-200"></div>
+                    </div>
+                    <div class="text-slate-400 text-xs">Gemini пишет код модели...</div>
+                </div>
+            </div>
+            <div class="p-3 border-t border-slate-100 flex justify-end space-x-2 bg-white rounded-b-xl">
+                <button onclick="copyCode()"
+                    class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 font-medium transition">
+                    <i class="fas fa-copy mr-2"></i>Копировать
+                </button>
+                <button onclick="closeModal()"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium transition">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-400 text-sm">
+            <p>NexusFlow Design Spec &copy; 2024</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- API CONFIG ---
+        const apiKey = "";
+
+        // --- GEMINI API LOGIC ---
+        async function callGemini(prompt) {
+            if (!apiKey) {
+                console.warn("API Key is empty via environment.");
+            }
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }]
+            };
+
+            const maxRetries = 3;
+            let delay = 1000;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const data = await response.json();
+                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Извините, не удалось получить ответ.";
+                } catch (error) {
+                    console.error("Gemini API Error (Attempt " + (i + 1) + "):", error);
+                    if (i === maxRetries - 1) return "Ошибка соединения с AI сервисом. Попробуйте позже.";
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        // --- DATA ---
+        const modelsData = {
+            'User': {
+                desc: 'Расширенная модель пользователя Django. Является основой аутентификации.',
+                fields: [
+                    { name: 'username', type: 'String' },
+                    { name: 'avatar', type: 'ImageField' },
+                    { name: 'role', type: 'Enum (Manager, Dev, etc)' },
+                    { name: 'telegram_id', type: 'BigInt (Nullable)' }
+                ],
+                relations: ['Has Many Tasks', 'Has Many Projects (via Workspace)']
+            },
+            'Workspace': {
+                desc: 'Пространство работы (Офис/Отдел). Верхнеуровневая группировка.',
+                fields: [
+                    { name: 'name', type: 'String' },
+                    { name: 'created_at', type: 'DateTime' }
+                ],
+                relations: ['Has Many Users', 'Has Many Projects']
+            },
+            'Project': {
+                desc: 'Проект, объединяющий задачи. Привязан к Google Sheet.',
+                fields: [
+                    { name: 'name', type: 'String' },
+                    { name: 'deadline', type: 'Date' },
+                    { name: 'budget', type: 'Decimal' },
+                    { name: 'google_sheet_id', type: 'String' }
+                ],
+                relations: ['Belongs to Workspace', 'Has Many Tasks', 'Has Many KanbanColumns']
+            },
+            'Task': {
+                desc: 'Центральная сущность системы. "Всё есть задача".',
+                fields: [
+                    { name: 'title', type: 'String' },
+                    { name: 'status', type: 'Enum (ToDo, Progress, Done)' },
+                    { name: 'priority', type: 'Enum' },
+                    { name: 'due_date', type: 'DateTime' },
+                    { name: 'estimated_time', type: 'Float' },
+                    { name: 'parent_task', type: 'Self-Reference (for Gantt)' }
+                ],
+                relations: ['Belongs to Project', 'Assigned to User', 'Has Many TimeLogs']
+            },
+            'TimeLog': {
+                desc: 'Запись затраченного времени для отчетов.',
+                fields: [
+                    { name: 'start_time', type: 'DateTime' },
+                    { name: 'end_time', type: 'DateTime' },
+                    { name: 'duration', type: 'Float' }
+                ],
+                relations: ['Belongs to Task', 'Belongs to User']
+            },
+            'Event': {
+                desc: 'Событие календаря (встреча), не требующая выполнения как задача.',
+                fields: [
+                    { name: 'title', type: 'String' },
+                    { name: 'start_dt', type: 'DateTime' },
+                    { name: 'end_dt', type: 'DateTime' },
+                    { name: 'gcal_event_id', type: 'String' }
+                ],
+                relations: ['Many-to-Many Users (Participants)']
+            }
+        };
+
+        // --- NAVIGATION LOGIC ---
+        function navTo(targetId) {
+            // Hide all sections
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            // Show target
+            const target = document.getElementById(targetId);
+            target.classList.remove('hidden');
+
+            // Update Nav Classes
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('nav-active', 'text-blue-600', 'border-b-2', 'border-blue-600', 'font-semibold');
+                el.classList.add('text-slate-500');
+                if (el.dataset.target === targetId) {
+                    el.classList.add('nav-active', 'text-blue-600', 'border-b-2', 'border-blue-600', 'font-semibold');
+                    el.classList.remove('text-slate-500');
+                }
+            });
+
+            // Initialize charts if needed
+            if (targetId === 'overview' && !window.stackChartInstance) initStackChart();
+            if (targetId === 'simulation' && !window.burndownChartInstance) initBurndownChart();
+        }
+
+        // --- DATA MODEL EXPLORER LOGIC ---
+        function renderModelList() {
+            const listContainer = document.getElementById('model-list');
+            listContainer.innerHTML = '';
+
+            Object.keys(modelsData).forEach((modelName, index) => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-3 hover:bg-blue-50 transition border-l-4 ${index === 0 ? 'border-blue-500 bg-blue-50' : 'border-transparent'}`;
+                btn.innerHTML = `<span class="font-bold text-slate-700">${modelName}</span>`;
+                btn.onclick = () => selectModel(modelName, btn);
+                listContainer.appendChild(btn);
+            });
+
+            // Select first by default
+            selectModel('User', listContainer.firstChild);
+        }
+
+        function selectModel(modelName, btnElement) {
+            // Update UI styles
+            const buttons = document.getElementById('model-list').children;
+            for (let btn of buttons) {
+                btn.classList.remove('border-blue-500', 'bg-blue-50');
+                btn.classList.add('border-transparent');
+            }
+            if (btnElement) {
+                btnElement.classList.remove('border-transparent');
+                btnElement.classList.add('border-blue-500', 'bg-blue-50');
+            }
+
+            // Render Content
+            const data = modelsData[modelName];
+            const contentDiv = document.getElementById('model-detail-content');
+
+            let fieldsHtml = data.fields.map(f => `
+                <div class="flex justify-between py-2 border-b border-slate-50 last:border-0">
+                    <span class="font-mono text-blue-700 text-sm">${f.name}</span>
+                    <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded">${f.type}</span>
+                </div>
+            `).join('');
+
+            let relsHtml = data.relations.map(r => `
+                <div class="flex items-center text-sm text-slate-600 py-1">
+                    <i class="fas fa-link text-xs mr-2 text-slate-400"></i> ${r}
+                </div>
+            `).join('');
+
+            contentDiv.innerHTML = `
+                <div class="fade-in relative">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-3">
+                                <i class="fas fa-database"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold text-slate-800" id="current-model-name">${modelName}</h3>
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">Django Model</span>
+                            </div>
+                        </div>
+                        <button onclick="generateModelCode('${modelName}')" class="flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:shadow-lg hover:scale-105 transition transform">
+                            <i class="fas fa-sparkles mr-2 text-yellow-300"></i>
+                            Генерировать Код
+                        </button>
+                    </div>
+                    
+                    <p class="text-slate-600 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-100">${data.desc}</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">Поля (Fields)</h4>
+                            <div class="bg-white">${fieldsHtml}</div>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">Связи (Relations)</h4>
+                            <div class="bg-white">${relsHtml}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- GEMINI: CODE GENERATOR ---
+        async function generateModelCode(modelName) {
+            const modal = document.getElementById('code-modal');
+            const codeArea = document.getElementById('modal-code-area');
+            const title = document.getElementById('modal-title');
+
+            title.innerText = `Generating ${modelName}.py ...`;
+            modal.classList.remove('hidden');
+            codeArea.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-64 space-y-4">
+                    <div class="flex space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                        <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-100"></div>
+                        <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-200"></div>
+                    </div>
+                    <div class="text-slate-400 text-xs">Gemini создает Django модель для ${modelName}...</div>
+                </div>
+            `;
+
+            const modelInfo = modelsData[modelName];
+            const prompt = `
+                You are a Senior Python Developer.
+                Write the complete Python Django 5.0 model code for a model named "${modelName}".
+                
+                Description: ${modelInfo.desc}
+                Fields: ${JSON.stringify(modelInfo.fields)}
+                Relations: ${JSON.stringify(modelInfo.relations)}
+                
+                Rules:
+                1. Use standard Django models imports.
+                2. Use type hinting where appropriate.
+                3. Add a __str__ method.
+                4. Add a Meta class with verbose_name.
+                5. Output ONLY the python code inside markdown code blocks.
+            `;
+
+            const response = await callGemini(prompt);
+
+            // Simple markdown parsing to HTML
+            const htmlContent = marked.parse(response);
+
+            title.innerText = `${modelName}.py`;
+            codeArea.innerHTML = `<div class="prose prose-invert max-w-none p-4">${htmlContent}</div>`;
+        }
+
+        function closeModal() {
+            document.getElementById('code-modal').classList.add('hidden');
+        }
+
+        function copyCode() {
+            const codeText = document.querySelector('#modal-code-area code')?.innerText;
+            if (codeText) {
+                navigator.clipboard.writeText(codeText);
+                alert('Код скопирован в буфер обмена!');
+            }
+        }
+
+        // --- GEMINI: CHAT LOGIC ---
+        function toggleChat() {
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.classList.toggle('chat-hidden');
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            const messagesContainer = document.getElementById('chat-messages');
+
+            if (!message) return;
+
+            // User Message
+            const userDiv = document.createElement('div');
+            userDiv.className = 'user-message p-3 self-end ml-10 shadow-sm text-right mb-3';
+            userDiv.innerText = message;
+            messagesContainer.appendChild(userDiv);
+
+            input.value = '';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Loading State
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'ai-message p-3 self-start mr-10 shadow-sm mb-3 flex space-x-1';
+            loadingDiv.innerHTML = '<div class="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div><div class="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div><div class="w-2 h-2 bg-slate-400 rounded-full typing-dot"></div>';
+            messagesContainer.appendChild(loadingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Context construction
+            const context = `
+                Project: NexusFlow (ERP-lite).
+                Stack: Django 5.0 (Backend), React+TS (Frontend), PostgreSQL, Redis, Celery.
+                Integrations: Telegram Bot (Aiogram), Google Sheets API (gspread).
+                Architecture Philosophy: "Everything is a Task".
+                Database Models: ${Object.keys(modelsData).join(', ')}.
+                
+                You are the System Architect. Answer the user's question accurately based on this tech stack.
+                If the question is unrelated, politely redirect to the architecture.
+            `;
+
+            const prompt = `${context}\n\nUser Question: ${message}`;
+
+            const response = await callGemini(prompt);
+
+            // Remove loading
+            messagesContainer.removeChild(loadingDiv);
+
+            // AI Message
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'ai-message p-3 self-start mr-5 shadow-sm mb-3 prose prose-sm max-w-none';
+            aiDiv.innerHTML = marked.parse(response);
+            messagesContainer.appendChild(aiDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+
+        // --- INTEGRATION TABS ---
+        function switchIntegration(type) {
+            document.querySelectorAll('.int-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`flow-${type}`).classList.remove('hidden');
+
+            document.querySelectorAll('.int-tab').forEach(el => {
+                el.classList.remove('active-int', 'border-blue-600', 'text-blue-600');
+                el.classList.add('text-slate-500');
+            });
+            const btn = document.getElementById(`btn-${type}`);
+            btn.classList.add('active-int', 'border-blue-600', 'text-blue-600');
+            btn.classList.remove('text-slate-500');
+        }
+
+        // --- CHARTS CONFIG ---
+        function initStackChart() {
+            const ctx = document.getElementById('stackChart').getContext('2d');
+            window.stackChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Backend (Django)', 'Frontend (React)', 'Data (Postgres/Redis)', 'Integrations (TG/Google)'],
+                    datasets: [{
+                        data: [35, 35, 15, 15],
+                        backgroundColor: ['#eab308', '#3b82f6', '#6366f1', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        }
+
+        function initBurndownChart() {
+            const ctx = document.getElementById('burndownChart').getContext('2d');
+
+            // Simulated Data
+            const labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            const ideal = [20, 17, 14, 11, 8, 5, 0];
+            const actual = [20, 18, 16, 12, 10, 4, 2];
+
+            window.burndownChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Идеальное сгорание',
+                            data: ideal,
+                            borderColor: '#cbd5e1',
+                            borderDash: [5, 5],
+                            tension: 0.1,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Реальное выполнение',
+                            data: actual,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            renderEvents();
+        }
+
+        function renderEvents() {
+            const events = [
+                { time: '10:00', title: 'Daily Scrum', type: 'meeting' },
+                { time: '13:00', title: 'Code Review: API', type: 'code' },
+                { time: '16:30', title: 'Demo с клиентом', type: 'meeting' }
+            ];
+
+            const container = document.getElementById('event-list');
+            container.innerHTML = events.map(e => `
+                <div class="flex items-center p-3 rounded-lg bg-slate-50 border border-slate-100">
+                    <div class="font-bold text-slate-500 w-16">${e.time}</div>
+                    <div class="flex-1">
+                        <div class="text-sm font-semibold text-slate-800">${e.title}</div>
+                    </div>
+                    <div class="w-2 h-2 rounded-full ${e.type === 'meeting' ? 'bg-orange-400' : 'bg-blue-400'}"></div>
+                </div>
+            `).join('');
+        }
+
+        function randomizeDashboard() {
+            // Update KPIs
+            document.getElementById('kpi-active').innerText = Math.floor(Math.random() * 30) + 10;
+            document.getElementById('kpi-overdue').innerText = Math.floor(Math.random() * 5);
+
+            // Update Chart
+            if (window.burndownChartInstance) {
+                const newData = [20];
+                for (let i = 1; i < 7; i++) {
+                    newData.push(Math.max(0, newData[i - 1] - Math.floor(Math.random() * 5)));
+                }
+                window.burndownChartInstance.data.datasets[1].data = newData;
+                window.burndownChartInstance.update();
+            }
+        }
+
+        // --- INIT ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initStackChart();
+            renderModelList();
+
+            // Default View
+            navTo('overview');
+        });
+
+    </script>
+</body>
+
+</html>

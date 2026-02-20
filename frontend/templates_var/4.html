@@ -1,0 +1,303 @@
+import React, { useState, useEffect } from 'react';
+
+// Конфигурация API
+const apiKey = ""; // Ключ подставится автоматически
+
+const slides = [
+{
+id: 1,
+type: "title",
+title: "Бизнес на Автопилоте",
+subtitle: "LukInterLab Business OS",
+content: "Первая в мире ОС, где рутиной управляет ИИ.",
+icon: "🚀"
+},
+{
+id: 2,
+type: "pain",
+title: "Почему бизнес умирает?",
+points: [
+{ icon: "🌪️", title: "Хаос", desc: "Данные в 10 мессенджерах." },
+{ icon: "👔", title: "Микроменеджмент", desc: "80% времени на контроль." },
+{ icon: "📉", title: "Слепота", desc: "Кассовые разрывы постфактум." }
+]
+},
+{
+id: 3,
+type: "solution",
+title: "LukInterLab OS",
+subtitle: "Цифровой Исполнительный Директор",
+content: "Единая экосистема с ИИ-Агент в центре.",
+highlight: "Действует на опережение 24/7.",
+icon: "🤖"
+},
+{
+id: 4,
+type: "tech",
+title: "Гибридный Интеллект",
+subtitle: "Нейро-Парсер Команд",
+schema: [
+{ part: "ГЛАЗА", desc: "OCR / Зрение", icon: "👁️" },
+{ part: "МОЗГ", desc: "Gemini / LLM", icon: "🧠" },
+{ part: "РУКИ", desc: "API / Банки", icon: "🦾" }
+]
+},
+{
+id: 5,
+type: "case",
+title: "Кейс: Стройка (AntExpress)",
+subtitle: "Генератор решений инцидентов",
+description: "Введите проблему на стройке, и ИИ решит её.",
+icon: "🏗️"
+},
+{
+id: 10,
+type: "cta",
+title: "Будущее здесь",
+subtitle: "Спросите Виртуального Основателя",
+contacts: { name: "Сергей Лукьянов", role: "CEO LukInterLab", action: "Ищем партнеров" }
+}
+];
+
+export default function App() {
+const [current, setCurrent] = useState(0);
+const [isLoading, setIsLoading] = useState(false);
+
+// State for Slide 4 (Tech Demo)
+const [techCommand, setTechCommand] = useState("Оплати счет за бетон 50к срочно");
+const [techLog, setTechLog] = useState(null);
+
+// State for Slide 5 (Case Gen)
+const [incidentInput, setIncidentInput] = useState("Рабочий разбил окно на объекте");
+const [incidentSolution, setIncidentSolution] = useState(null);
+
+// State for Slide 10 (Virtual CEO)
+const [investorQ, setInvestorQ] = useState("");
+const [ceoAnswer, setCeoAnswer] = useState(null);
+
+const nextSlide = () => setCurrent(prev => (prev + 1) % slides.length);
+const prevSlide = () => setCurrent(prev => (prev - 1 + slides.length) % slides.length);
+
+// Generic API Caller
+const callAI = async (prompt) => {
+setIsLoading(true);
+try {
+const resp = await
+fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+{
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+});
+const data = await resp.json();
+return data.candidates[0].content.parts[0].text;
+} catch (e) {
+return "Ошибка связи с ИИ. Проверьте соединение.";
+} finally {
+setIsLoading(false);
+}
+};
+
+// Handlers
+const handleTechDemo = async (e) => {
+e.preventDefault();
+const res = await callAI(`Проанализируй бизнес-команду: "${techCommand}". Выведи ответ строго в формате:
+Intent: [Тип задачи]
+Agent: [Кто выполнит]
+Risk: [Уровень риска]
+Action: [Техническое действие]`);
+setTechLog(res);
+};
+
+const handleIncident = async (e) => {
+e.preventDefault();
+const res = await callAI(`Ты операционная система LukInterLab. На стройке произошел инцидент: "${incidentInput}".
+Сгенерируй 3 коротких шага, которые предпримет система автоматически (без участия человека). Используй эмодзи.`);
+setIncidentSolution(res);
+};
+
+const handleCEO = async (e) => {
+e.preventDefault();
+const res = await callAI(`Ты Сергей Лукьянов, амбициозный CEO IT-стартапа. Инвестор спрашивает: "${investorQ}".
+Ответь коротко, дерзко, продавая визионерство и масштаб. Максимум 2 предложения.`);
+setCeoAnswer(res);
+};
+
+const slide = slides[current];
+
+return (
+<div style={{ height: '100vh' , width: '100%' , backgroundColor: '#020617' , color: '#f8fafc' , display: 'flex' ,
+    alignItems: 'center' , justifyContent: 'center' , fontFamily: 'sans-serif' , padding: '20px' }}>
+    <div style={{ position: 'relative' , width: '100%' , maxWidth: '900px' , aspectRatio: '16/9' ,
+        backgroundColor: '#0f172a' , border: '1px solid #1e293b' , borderRadius: '24px' , padding: '40px' ,
+        display: 'flex' , flexDirection: 'column' , boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex' , justifyContent: 'space-between' , borderBottom: '1px solid #1e293b' ,
+            paddingBottom: '15px' , marginBottom: '20px' }}>
+            <div style={{ color: '#3b82f6' , fontWeight: 'bold' , fontSize: '12px' , letterSpacing: '2px' }}>
+                LUKINTERLAB // {current + 1}
+            </div>
+            <div style={{ color: '#64748b' , fontSize: '10px' }}>LIVE AI DEMO</div>
+        </div>
+
+        {/* Content Area */}
+        <div style={{ flex: 1, display: 'flex' , flexDirection: 'column' , justifyContent: 'center' ,
+            alignItems: 'center' , textAlign: 'center' , overflowY: 'auto' }}>
+
+            {/* TITLE SLIDE */}
+            {slide.type === 'title' && (
+            <div className="animate-in fade-in zoom-in duration-500">
+                <div style={{ fontSize: '60px' , marginBottom: '20px' }}>{slide.icon}</div>
+                <h1 style={{ fontSize: '48px' , fontWeight: '900' , marginBottom: '10px' , letterSpacing: '-1px' }}>
+                    {slide.title}</h1>
+                <p style={{ fontSize: '20px' , color: '#60a5fa' , fontWeight: '300' }}>{slide.subtitle}</p>
+                <div style={{ marginTop: '30px' , fontSize: '12px' , color: '#94a3b8' , border: '1px solid #334155' ,
+                    padding: '8px 16px' , borderRadius: '20px' }}>
+                    Нажмите стрелку вправо →
+                </div>
+            </div>
+            )}
+
+            {/* PAIN & SOLUTION SLIDES */}
+            {(slide.type === 'pain' || slide.type === 'solution') && (
+            <div style={{ width: '100%' }}>
+                <h2 style={{ fontSize: '32px' , marginBottom: '10px' }}>{slide.title}</h2>
+                <p style={{ color: '#94a3b8' , marginBottom: '40px' }}>{slide.subtitle}</p>
+                {slide.points ? (
+                <div style={{ display: 'flex' , gap: '20px' }}>
+                    {slide.points.map((p, i) => (
+                    <div key={i} style={{ flex: 1, backgroundColor: '#1e293b' , padding: '20px' , borderRadius: '16px'
+                        }}>
+                        <div style={{ fontSize: '30px' , marginBottom: '10px' }}>{p.icon}</div>
+                        <div style={{ fontWeight: 'bold' , marginBottom: '5px' }}>{p.title}</div>
+                        <div style={{ fontSize: '12px' , color: '#94a3b8' }}>{p.desc}</div>
+                    </div>
+                    ))}
+                </div>
+                ) : (
+                <div style={{ fontSize: '24px' , fontWeight: '300' , color: '#fff' }}>
+                    {slide.content} <br />
+                    <span style={{ color: '#3b82f6' , fontWeight: 'bold' }}>{slide.highlight}</span>
+                </div>
+                )}
+            </div>
+            )}
+
+            {/* SLIDE 4: TECH PARSER */}
+            {slide.type === 'tech' && (
+            <div style={{ width: '100%' , textAlign: 'left' }}>
+                <h2 style={{ fontSize: '28px' , marginBottom: '20px' , textAlign: 'center' }}>{slide.title} <span
+                        style={{fontSize: '14px' , color:'#3b82f6'}}>// AI LIVE</span></h2>
+
+                <div style={{ backgroundColor: '#020617' , padding: '20px' , borderRadius: '16px' ,
+                    border: '1px solid #334155' , fontFamily: 'monospace' }}>
+                    <div style={{ marginBottom: '10px' , color: '#64748b' , fontSize: '12px' }}>// Введите
+                        неструктурированную задачу:</div>
+                    <form onSubmit={handleTechDemo} style={{ display: 'flex' , gap: '10px' }}>
+                        <span style={{ color: '#22c55e' }}>$</span>
+                        <input value={techCommand} onChange={e=> setTechCommand(e.target.value)}
+                        style={{ backgroundColor: 'transparent', border: 'none', outline: 'none', color: '#f8fafc',
+                        flex: 1, fontFamily: 'monospace' }}
+                        />
+                        <button type="submit" style={{ cursor: 'pointer' , background: '#3b82f6' , border: 'none' ,
+                            color: '#fff' , padding: '2px 10px' , borderRadius: '4px' }}>RUN</button>
+                    </form>
+
+                    <div style={{ marginTop: '20px' , minHeight: '100px' , color: '#94a3b8' , fontSize: '13px' ,
+                        whiteSpace: 'pre-wrap' }}>
+                        {isLoading ? "Анализ нейросетью..." : (techLog || "Ожидание команды...")}
+                    </div>
+                </div>
+            </div>
+            )}
+
+            {/* SLIDE 5: CONSTRUCTION CASE */}
+            {slide.type === 'case' && (
+            <div style={{ width: '100%' }}>
+                <div style={{ fontSize: '40px' , marginBottom: '10px' }}>{slide.icon}</div>
+                <h2 style={{ fontSize: '30px' , marginBottom: '5px' }}>{slide.title}</h2>
+                <p style={{ color: '#64748b' , marginBottom: '30px' }}>{slide.subtitle}</p>
+
+                <div style={{ display: 'flex' , gap: '20px' , alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1, backgroundColor: '#fff' , color: '#000' , padding: '20px' ,
+                        borderRadius: '16px' , textAlign: 'left' }}>
+                        <label style={{ fontSize: '12px' , fontWeight: 'bold' , color: '#64748b' }}>ПРОБЛЕМА:</label>
+                        <input value={incidentInput} onChange={e=> setIncidentInput(e.target.value)}
+                        style={{ width: '100%', border: 'none', borderBottom: '2px solid #e2e8f0', padding: '10px 0',
+                        fontSize: '16px', outline: 'none' }}
+                        />
+                        <button onClick={handleIncident} style={{ marginTop: '15px' , width: '100%' ,
+                            backgroundColor: '#ef4444' , color: '#fff' , border: 'none' , padding: '10px' ,
+                            borderRadius: '8px' , cursor: 'pointer' , fontWeight: 'bold' }}>
+                            🚨 РЕШИТЬ ПРОБЛЕМУ
+                        </button>
+                    </div>
+                    <div style={{ flex: 1, backgroundColor: '#1e293b' , padding: '20px' , borderRadius: '16px' ,
+                        textAlign: 'left' , minHeight: '180px' }}>
+                        <div style={{ fontSize: '12px' , fontWeight: 'bold' , color: '#3b82f6' , marginBottom: '10px'
+                            }}>ДЕЙСТВИЯ SISTEMA OS:</div>
+                        <div style={{ fontSize: '14px' , lineHeight: '1.6' , color: '#e2e8f0' , whiteSpace: 'pre-wrap'
+                            }}>
+                            {isLoading ? "Генерация протокола..." : (incidentSolution || "Ожидание инцидента...")}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            )}
+
+            {/* SLIDE 10: CTA & VIRTUAL CEO */}
+            {slide.type === 'cta' && (
+            <div style={{ width: '100%' }}>
+                <h2 style={{ fontSize: '40px' , marginBottom: '30px' , fontWeight: '900' }}>{slide.title}</h2>
+
+                <div style={{ display: 'flex' , gap: '30px' , justifyContent: 'center' , alignItems: 'center' }}>
+                    <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: '24px' , fontWeight: 'bold' }}>{slide.contacts.name}</div>
+                        <div style={{ color: '#3b82f6' }}>{slide.contacts.role}</div>
+                        <div style={{ marginTop: '20px' , fontSize: '14px' , color: '#94a3b8' }}>{slide.contacts.action}
+                        </div>
+                    </div>
+
+                    <div style={{ width: '1px' , height: '100px' , backgroundColor: '#334155' }}></div>
+
+                    <div style={{ width: '350px' , backgroundColor: '#1e293b' , padding: '20px' , borderRadius: '16px' ,
+                        textAlign: 'left' }}>
+                        <div style={{ fontSize: '12px' , color: '#60a5fa' , marginBottom: '10px' }}>💬 СПРОСИ ОСНОВАТЕЛЯ
+                            (AI):</div>
+                        <form onSubmit={handleCEO} style={{ display: 'flex' , gap: '10px' , marginBottom: '15px' }}>
+                            <input value={investorQ} onChange={e=> setInvestorQ(e.target.value)}
+                            placeholder="Где деньги?"
+                            style={{ flex: 1, backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff',
+                            padding: '8px', borderRadius: '6px', fontSize: '12px' }}
+                            />
+                            <button type="submit" style={{ cursor: 'pointer' , background: '#3b82f6' , border: 'none' ,
+                                borderRadius: '6px' , padding: '0 10px' }}>↵</button>
+                        </form>
+                        <div style={{ fontSize: '13px' , fontStyle: 'italic' , color: '#e2e8f0' , minHeight: '40px' }}>
+                            {isLoading ? "..." : (ceoAnswer ? `"${ceoAnswer}"` : "")}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            )}
+
+        </div>
+
+        {/* Footer Nav */}
+        <div style={{ display: 'flex' , justifyContent: 'space-between' , marginTop: '30px' , color: '#64748b' ,
+            fontSize: '11px' , fontWeight: 'bold' }}>
+            <button onClick={prevSlide} style={{ background: 'none' , border: 'none' , color: '#64748b' ,
+                cursor: 'pointer' }}>← НАЗАД</button>
+            <div style={{ display: 'flex' , gap: '8px' }}>
+                {slides.map((_, i) =>
+                <div key={i} style={{ height: '4px' , width: '20px' , borderRadius: '2px' , backgroundColor: i===current
+                    ? '#3b82f6' : '#1e293b' }} />)}
+            </div>
+            <button onClick={nextSlide} style={{ background: 'none' , border: 'none' , color: '#64748b' ,
+                cursor: 'pointer' }}>ВПЕРЕД →</button>
+        </div>
+    </div>
+</div>
+);
+}

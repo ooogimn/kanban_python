@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Office Suite — календарь, to-do, канбан, Гант</title>
+    <meta name="description"
+        content="Единая офисная система: календарь, расписание, задачи, канбан, диаграмма Ганта, отчёты и аналитика." />
+    <style>
+        :root {
+            --bg: #0b1020;
+            --card: #121a33;
+            --muted: #9aa4c3;
+            --text: #e8ecff;
+            --accent: #6ee7ff;
+            --accent2: #a78bfa;
+            --ok: #34d399;
+            --warn: #fbbf24;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            background: radial-gradient(1200px 600px at 10% 0%, rgba(167, 139, 250, .25), transparent 60%),
+                radial-gradient(1200px 600px at 90% 10%, rgba(110, 231, 255, .18), transparent 55%), var(--bg);
+            color: var(--text);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 24px
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 10px 0
+        }
+
+        .brand {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-weight: 700;
+            letter-spacing: .2px
+        }
+
+        .logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            box-shadow: 0 10px 30px rgba(110, 231, 255, .12)
+        }
+
+        .menu {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            color: var(--muted);
+            font-size: 14px
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(18, 26, 51, .65);
+            padding: 10px 14px;
+            border-radius: 12px;
+            backdrop-filter: blur(6px);
+            cursor: pointer
+        }
+
+        .btn:hover {
+            border-color: rgba(110, 231, 255, .45)
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, rgba(110, 231, 255, .18), rgba(167, 139, 250, .16));
+            border-color: rgba(255, 255, 255, .16)
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.1fr .9fr;
+            gap: 22px;
+            align-items: center;
+            padding: 26px 0 8px
+        }
+
+        @media (max-width:900px) {
+            .hero {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .h1 {
+            font-size: 44px;
+            line-height: 1.06;
+            margin: 0 0 12px
+        }
+
+        @media (max-width:520px) {
+            .h1 {
+                font-size: 34px
+            }
+        }
+
+        .lead {
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 0 0 18px
+        }
+
+        .chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 12px 0 18px
+        }
+
+        .chip {
+            font-size: 12px;
+            color: #cfe6ff;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(18, 26, 51, .5);
+            padding: 6px 10px;
+            border-radius: 999px
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-top: 18px
+        }
+
+        @media (max-width:900px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .card {
+            background: rgba(18, 26, 51, .65);
+            border: 1px solid rgba(255, 255, 255, .10);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, .22);
+            backdrop-filter: blur(6px)
+        }
+
+        .card h3 {
+            margin: 0 0 8px;
+            font-size: 16px
+        }
+
+        .card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5
+        }
+
+        .section {
+            padding: 26px 0
+        }
+
+        .section h2 {
+            margin: 0 0 10px;
+            font-size: 22px
+        }
+
+        .section .sub {
+            margin: 0 0 16px;
+            color: var(--muted);
+            line-height: 1.6
+        }
+
+        .split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px
+        }
+
+        @media (max-width:900px) {
+            .split {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px
+        }
+
+        @media (max-width:900px) {
+            .kpis {
+                grid-template-columns: repeat(2, 1fr)
+            }
+        }
+
+        .kpi {
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(18, 26, 51, .55)
+        }
+
+        .kpi .n {
+            font-size: 18px;
+            font-weight: 800
+        }
+
+        .kpi .t {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 4px
+        }
+
+        .demo {
+            display: grid;
+            gap: 12px
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(18, 26, 51, .65);
+            color: var(--text)
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical
+        }
+
+        .small {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .footer {
+            padding: 26px 0;
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        .tag {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .12)
+        }
+
+        .tag.ok {
+            border-color: rgba(52, 211, 153, .35);
+            color: #a7f3d0
+        }
+
+        .tag.warn {
+            border-color: rgba(251, 191, 36, .35);
+            color: #fde68a
+        }
+
+        .mock {
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(18, 26, 51, .55)
+        }
+
+        .mock .title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px
+        }
+
+        .cols {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px
+        }
+
+        @media (max-width:520px) {
+            .cols {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .col {
+            border: 1px dashed rgba(255, 255, 255, .14);
+            border-radius: 14px;
+            padding: 10px
+        }
+
+        .col h4 {
+            margin: 0 0 8px;
+            font-size: 13px;
+            color: #cfe6ff
+        }
+
+        .item {
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(11, 16, 32, .55);
+            margin-bottom: 8px
+        }
+
+        .item b {
+            display: block;
+            font-size: 13px;
+            margin-bottom: 4px
+        }
+
+        .item span {
+            font-size: 12px;
+            color: var(--muted)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="nav">
+            <div class="brand">
+                <div class="logo" aria-hidden="true"></div>
+                <div>Office Suite</div>
+            </div>
+            <nav class="menu">
+                <a href="#features">Функции</a>
+                <a href="#dashboards">Дашборды</a>
+                <a href="#tech">Технологии</a>
+                <a href="#contact">Контакты</a>
+            </nav>
+            <div class="row">
+                <a class="btn" href="#contact">Запросить демо</a>
+                <button class="btn primary" id="tgBtn">Открыть в Telegram</button>
+            </div>
+        </header>
+
+        <section class="hero">
+            <div>
+                <h1 class="h1">Календарь + задачи + канбан + Гант — в одной системе</h1>
+                <p class="lead">
+                    Управление работой команды: единые сущности задач, зависимости, план/факт, отчёты,
+                    аналитика и общий мониторинг “хода работ”. Web + mobile web + desktop-синхронизация.
+                </p>
+
+                <div class="chips">
+                    <span class="chip">Календарь / Расписание</span>
+                    <span class="chip">To-Do / Чек-листы</span>
+                    <span class="chip">Канбан / WIP</span>
+                    <span class="chip">Гант / Зависимости</span>
+                    <span class="chip">Отчёты / KPI</span>
+                    <span class="chip">Экспорт в Google Sheets</span>
+                </div>
+
+                <div class="row">
+                    <a class="btn primary" href="#features">Смотреть функции</a>
+                    <a class="btn" href="#dashboards">Пример дашборда</a>
+                </div>
+
+                <div class="grid">
+                    <div class="card">
+                        <h3>Единая модель работы</h3>
+                        <p>Одна задача → канбан → календарь → зависимости → Гант → отчёт. Без разрозненных сущностей.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <h3>Мониторинг и контроль</h3>
+                        <p>Сводный дашборд: просрочки, блокеры, загрузка, SLA, throughput, cycle time.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Интеграции и уведомления</h3>
+                        <p>Telegram-бот, web-push, email. Экспорт/синк в таблицы для управленки и отчётности.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mock" aria-label="Mock dashboard">
+                <div class="title">
+                    <b>Общий дашборд</b>
+                    <span class="tag ok">онлайн</span>
+                </div>
+
+                <div class="kpis">
+                    <div class="kpi">
+                        <div class="n" id="kpiWip">12</div>
+                        <div class="t">WIP сейчас</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="n" id="kpiOverdue">3</div>
+                        <div class="t">Просрочено</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="n" id="kpiBlockers">2</div>
+                        <div class="t">Блокеров</div>
+                    </div>
+                    <div class="kpi">
+                        <div class="n" id="kpiToday">5</div>
+                        <div class="t">Событий сегодня</div>
+                    </div>
+                </div>
+
+                <div style="height:12px"></div>
+
+                <div class="cols">
+                    <div class="col">
+                        <h4>To-Do</h4>
+                        <div class="item"><b>Согласовать ТЗ</b><span>Дедлайн: завтра • P1</span></div>
+                        <div class="item"><b>Импорт из Sheets</b><span>Интеграции • P2</span></div>
+                    </div>
+                    <div class="col">
+                        <h4>In Progress</h4>
+                        <div class="item"><b>Канбан drag&drop</b><span>UI • WIP</span></div>
+                        <div class="item"><b>Диаграмма Ганта</b><span>Планирование</span></div>
+                    </div>
+                    <div class="col">
+                        <h4>Done</h4>
+                        <div class="item"><b>RBAC роли</b><span>Безопасность</span></div>
+                    </div>
+                </div>
+
+                <div style="height:10px"></div>
+                <div class="row">
+                    <span class="tag warn">VPN: Google API</span>
+                    <span class="tag ok">Self-host: PostgreSQL</span>
+                    <span class="tag ok">Telegram вход</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="section">
+            <h2>Функции</h2>
+            <p class="sub">Базовый набор модулей для офисной системы управления работой.</p>
+
+            <div class="split">
+                <div class="card">
+                    <h3>Календарь и расписание</h3>
+                    <p>События, повторения, приглашения, напоминания, связь с задачами и проектами.</p>
+                </div>
+                <div class="card">
+                    <h3>To-Do и задачи</h3>
+                    <p>Статусы, приоритеты, чек-листы, теги, исполнители, наблюдатели, комментарии, файлы.</p>
+                </div>
+                <div class="card">
+                    <h3>Канбан</h3>
+                    <p>Колонки, WIP-лимиты, правила переходов, шаблоны досок, быстрые фильтры.</p>
+                </div>
+                <div class="card">
+                    <h3>Гант и зависимости</h3>
+                    <p>Связи задач (FS/SS), критический путь (опционально), план/факт, базовый прогресс.</p>
+                </div>
+                <div class="card">
+                    <h3>Отчёты и аналитика</h3>
+                    <p>Lead/Cycle time, throughput, burndown, загрузка по людям/проектам, SLA.</p>
+                </div>
+                <div class="card">
+                    <h3>Интеграции</h3>
+                    <p>Telegram-бот, webhooks, экспорт/импорт/синк в Sheets, уведомления и правила автоматизации.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="dashboards" class="section">
+            <h2>Дашборды</h2>
+            <p class="sub">Отдельные экраны по модулям + общий мониторинг исполнения работ и рисков.</p>
+            <div class="grid">
+                <div class="card">
+                    <h3>Общий мониторинг</h3>
+                    <p>Просрочки, блокеры, загрузка, WIP, тренды, топ-риски, состояние проектов.</p>
+                </div>
+                <div class="card">
+                    <h3>Проектный</h3>
+                    <p>Канбан + Гант + календарь проекта, зависимости, релизы, KPI по проекту.</p>
+                </div>
+                <div class="card">
+                    <h3>Личный</h3>
+                    <p>Мои задачи, моя неделя, уведомления, быстрые действия, фокус-режим.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="tech" class="section">
+            <h2>Технологии (вариант)</h2>
+            <p class="sub">Если будете разворачивать как продукт: Django/DRF + PostgreSQL + Celery + SPA.</p>
+            <div class="grid">
+                <div class="card">
+                    <h3>Backend</h3>
+                    <p>Python/Django, DRF, PostgreSQL, Celery+Redis, WebSocket/SSE для обновлений.</p>
+                </div>
+                <div class="card">
+                    <h3>Frontend</h3>
+                    <p>React/Vue + роутинг, компоненты дашбордов, drag&drop канбан, календарные виды.</p>
+                </div>
+                <div class="card">
+                    <h3>Desktop</h3>
+                    <p>Tauri/Electron (online-first), синхронизация с API, кэш и очередь действий.</p>
+                </div>
+            </div>
+            <p class="small" style="margin-top:10px;">
+                Примечание: Google Sheets — зарубежный сервис, возможны ограничения. Для РФ часто практикуют VPN и/или
+                альтернативы (self-host таблицы/BI).
+            </p>
+        </section>
+
+        <section id="contact" class="section">
+            <h2>Контакты / заявка на демо</h2>
+            <p class="sub">Форма не отправляет на сервер (это статический шаблон). Можно подключить к Django/Telegram.
+            </p>
+
+            <div class="card demo">
+                <div class="row" style="gap:12px">
+                    <div style="flex:1;min-width:240px">
+                        <label class="small">Имя</label>
+                        <input id="name" placeholder="Иван" />
+                    </div>
+                    <div style="flex:1;min-width:240px">
+                        <label class="small">Контакт</label>
+                        <input id="contactField" placeholder="Telegram @user / email / телефон" />
+                    </div>
+                </div>
+                <div>
+                    <label class="small">Сообщение</label>
+                    <textarea id="msg"
+                        placeholder="Что нужно: календарь/канбан/Гант, сколько пользователей, сроки..."></textarea>
+                </div>
+                <div class="row">
+                    <button class="btn primary" id="copyBtn">Скопировать заявку</button>
+                    <span class="small" id="status"></span>
+                </div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <div>© <span id="year"></span> Office Suite. Шаблон лендинга.</div>
+        </footer>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        $("year").textContent = new Date().getFullYear();
+
+        // Имитация KPI (чтобы выглядело “живым”)
+        const rnd = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
+        setInterval(() => {
+            $("kpiWip").textContent = rnd(8, 18);
+            $("kpiOverdue").textContent = rnd(0, 6);
+            $("kpiBlockers").textContent = rnd(0, 4);
+            $("kpiToday").textContent = rnd(1, 9);
+        }, 3500);
+
+        // Копирование заявки (удобно перекидывать в Telegram/таск)
+        $("copyBtn").addEventListener("click", async () => {
+            const text =
+                `Заявка на демо Office Suite
+Имя: ${$("name").value || "-"}
+Контакт: ${$("contactField").value || "-"}
+Сообщение: ${$("msg").value || "-"}`;
+            try {
+                await navigator.clipboard.writeText(text);
+                $("status").textContent = "Скопировано в буфер обмена.";
+            } catch (e) {
+                $("status").textContent = "Не удалось скопировать (ограничения браузера).";
+            }
+            setTimeout(() => $("status").textContent = "", 2500);
+        });
+
+        // Кнопка “Открыть в Telegram” (замените на ссылку на вашего бота)
+        $("tgBtn").addEventListener("click", () => {
+            // Пример: tg://resolve?domain=YourBot
+            // Для web: https://t.me/YourBot
+            alert("Замените ссылку на вашего Telegram-бота в коде (tg:// или https://t.me/...).");
+        });
+    </script>
+</body>
+
+</html>

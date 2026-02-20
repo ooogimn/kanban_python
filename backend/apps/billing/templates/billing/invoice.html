@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Счёт {{ invoice.number }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 2cm;
+      }
+      body {
+        font-family: 'DejaVu Sans', Arial, sans-serif;
+        font-size: 11px;
+        color: #333;
+        line-height: 1.4;
+      }
+      .header {
+        display: table;
+        width: 100%;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #1e3a5f;
+        padding-bottom: 15px;
+      }
+      .header-left {
+        display: table-cell;
+        width: 50%;
+        vertical-align: top;
+      }
+      .header-right {
+        display: table-cell;
+        width: 50%;
+        text-align: right;
+        vertical-align: top;
+      }
+      .logo-placeholder {
+        width: 120px;
+        height: 50px;
+        border: 1px dashed #999;
+        background: #f5f5f5;
+        margin-bottom: 10px;
+        font-size: 9px;
+        color: #999;
+        padding-top: 18px;
+        padding-left: 5px;
+        padding-right: 5px;
+        text-align: center;
+      }
+      .company-name {
+        font-size: 16px;
+        font-weight: bold;
+        color: #1e3a5f;
+      }
+      .invoice-title {
+        font-size: 22px;
+        font-weight: bold;
+        color: #1e3a5f;
+        margin-bottom: 5px;
+      }
+      .invoice-number {
+        font-size: 14px;
+        color: #666;
+      }
+      .parties {
+        margin-bottom: 25px;
+      }
+      .party-block {
+        margin-bottom: 15px;
+      }
+      .party-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        color: #666;
+        margin-bottom: 3px;
+      }
+      .party-name {
+        font-weight: bold;
+        font-size: 12px;
+      }
+      .party-details {
+        font-size: 10px;
+        color: #555;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+      th {
+        background: #1e3a5f;
+        color: white;
+        padding: 10px 8px;
+        text-align: left;
+        font-size: 10px;
+        font-weight: bold;
+      }
+      td {
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+      }
+      tr:nth-child(even) {
+        background: #f9f9f9;
+      }
+      .text-right {
+        text-align: right;
+      }
+      .total-row {
+        font-weight: bold;
+        font-size: 13px;
+        background: #e8eef5 !important;
+        border-top: 2px solid #1e3a5f;
+      }
+      .footer {
+        margin-top: 40px;
+        font-size: 9px;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-placeholder">Логотип</div>
+        <div class="company-name">ООО «ЛукинтерЛаб»</div>
+        <div class="party-details">
+          ИНН/КПП • Реквизиты банка<br />
+          Юридический адрес
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="invoice-title">Счёт на оплату</div>
+        <div class="invoice-number">{{ invoice.number }}</div>
+        <div style="margin-top: 10px;">
+          <span>Дата: {{ invoice.date_issue|date:'d.m.Y' }}</span><br />
+          <span>Срок: {{ invoice.date_due|date:'d.m.Y' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="parties">
+      <div class="party-block">
+        <div class="party-label">Исполнитель</div>
+        <div class="party-name">ООО «ЛукинтерЛаб»</div>
+        <div class="party-details">Проект: {{ project.name }}</div>
+      </div>
+      <div class="party-block">
+        <div class="party-label">Плательщик</div>
+        <div class="party-name">
+          {% if customer %}
+            {{ customer.name }}
+          {% else %}
+            —
+          {% endif %}
+        </div>
+        <div class="party-details">
+          {% if customer %}{{ customer.contact_email }}{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Наименование</th>
+          <th class="text-right">Часы</th>
+          <th class="text-right">Ставка</th>
+          <th class="text-right">Сумма</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in line_items %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ item.title }}</td>
+            <td class="text-right">{{ item.hours|floatformat:2 }}</td>
+            <td class="text-right">{{ item.rate }}</td>
+            <td class="text-right">{{ item.amount }}</td>
+          </tr>
+        {% endfor %}
+        <tr class="total-row">
+          <td colspan="4" class="text-right">Итого:</td>
+          <td class="text-right">{{ invoice.amount_total }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">Счёт сформирован в системе OS-LukinterLab • {{ invoice.date_issue|date:'d.m.Y' }}</div>
+  </body>
+</html>

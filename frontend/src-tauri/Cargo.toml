@@ -1,0 +1,23 @@
+[package]
+name = "os-lukintrlab"
+version = "1.0.0"
+description = "OS LukintrLab - Office Suite desktop client"
+edition = "2021"
+rust-version = "1.70"
+license = "MIT"
+
+[lib]
+name = "os_lukintrlab_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-http = "2"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

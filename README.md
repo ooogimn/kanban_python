@@ -1,6 +1,8 @@
 Lsy
 http://localhost:5173/login
 
+Достаточно: правки → git add . → git commit -m "..." → git push origin main.
+
 1. git add, git commit, git push
 git push -u origin main --force                   # --force перезапишет ветку main на GitHub вашей локальной историей  
 git log main -1 --stat                            # Посмотреть, какие файлы в последнем коммите
@@ -244,3 +246,19 @@ Proprietary
    - http://localhost:8000/api/schema/swagger-ui/ — Swagger UI
 
 4. **Redis** (опционально): для WebSocket и кеша. Если не запущен — API работает, real-time может быть недоступен.
+
+
+
+
+
+Вместо импортов используются URL из public/landing/:
+hero.jpg — бывший page-0008.jpg
+mission.jpg — page-0001.jpg
+philosophy.jpg — page-0002.jpg
+visualization.jpg — page-0003.jpg
+time.jpg — page-0004.jpg
+office.jpg — page-0005.jpg
+analytics.jpg — page-0006.jpg
+ai.jpg — page-0007.jpg
+tech.jpg — page-0009.jpg
+early-access.jpg — page-0010.jpg

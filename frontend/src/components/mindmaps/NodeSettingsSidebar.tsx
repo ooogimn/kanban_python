@@ -26,7 +26,8 @@ import type { CyberEdgeData, EdgeLabelWrapperSize, EdgeStyleType } from './Cyber
 
 const EDGE_DEFAULT_COLOR = '#22d3ee';
 const EDGE_DEFAULT_LABEL_FONT_SIZE = 12;
-const EDGE_FONT_SIZES = [10, 12, 14, 16, 18, 20, 24] as const;
+/** Размеры надписей на линии: 4, 6, 8 и популярные значения */
+const EDGE_FONT_SIZES = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32] as const;
 const EDGE_STROKE_WIDTHS = [2, 4, 6, 8, 10, 12] as const;
 const EDGE_WRAPPER_SIZES: { value: EdgeLabelWrapperSize; label: string }[] = [
   { value: 'small', label: 'Маленькая' },
@@ -41,18 +42,20 @@ const EDGE_COLOR_TARGETS: { value: EdgeColorTarget; label: string }[] = [
   { value: 'wrapper', label: 'Обёртка' },
 ];
 
-type NodeColorTarget = 'wrapper' | 'card' | 'label' | 'bottomText' | 'border';
+type NodeColorTarget = 'wrapper' | 'card' | 'label' | 'topText' | 'bottomText' | 'border';
 const NODE_COLOR_TARGETS: { value: NodeColorTarget; label: string }[] = [
   { value: 'wrapper', label: 'Обёртка' },
   { value: 'card', label: 'Карточка' },
   { value: 'label', label: 'Надпись' },
+  { value: 'topText', label: 'Текст сверху' },
   { value: 'bottomText', label: 'Текст снизу' },
   { value: 'border', label: 'Рамка' },
 ];
 
-type NodeSizeTarget = 'label' | 'bottomText' | 'link';
+type NodeSizeTarget = 'label' | 'topText' | 'bottomText' | 'link';
 const NODE_SIZE_TARGETS: { value: NodeSizeTarget; label: string }[] = [
   { value: 'label', label: 'Надпись' },
+  { value: 'topText', label: 'Текст сверху' },
   { value: 'bottomText', label: 'Текст снизу' },
   { value: 'link', label: 'URL' },
 ];
@@ -150,7 +153,7 @@ export default function NodeSettingsSidebar() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-slate-400">Размер надписи:</span>
+            <span className="text-xs text-slate-400">Размеры надписей:</span>
             <div className="flex gap-0.5 flex-wrap">
               {EDGE_FONT_SIZES.map((size) => (
                 <button
@@ -287,6 +290,9 @@ export default function NodeSettingsSidebar() {
   const cardColor = data.cardColor;
   const labelColor = data.labelColor ?? DEFAULT_LABEL_COLOR;
   const borderColor = data.borderColor;
+  const topText = data.topText ?? '';
+  const topTextColor = data.topTextColor ?? DEFAULT_LABEL_COLOR;
+  const topTextFontSize = data.topTextFontSize ?? 12;
   const bottomText = data.bottomText ?? '';
   const bottomTextColor = data.bottomTextColor ?? DEFAULT_LABEL_COLOR;
   const linkUrl = data.link;
@@ -364,14 +370,16 @@ export default function NodeSettingsSidebar() {
                 nodeColorTarget === 'wrapper' ? { color: value }
                   : nodeColorTarget === 'card' ? { cardColor: value }
                     : nodeColorTarget === 'label' ? { labelColor: value }
-                      : nodeColorTarget === 'bottomText' ? { bottomTextColor: value }
-                        : { borderColor: value };
+                      : nodeColorTarget === 'topText' ? { topTextColor: value }
+                        : nodeColorTarget === 'bottomText' ? { bottomTextColor: value }
+                          : { borderColor: value };
               const current =
                 nodeColorTarget === 'wrapper' ? color
                   : nodeColorTarget === 'card' ? cardColor
                     : nodeColorTarget === 'label' ? labelColor
-                      : nodeColorTarget === 'bottomText' ? bottomTextColor
-                        : borderColor;
+                      : nodeColorTarget === 'topText' ? topTextColor
+                        : nodeColorTarget === 'bottomText' ? bottomTextColor
+                          : borderColor;
               return (
                 <button
                   key={value}
@@ -387,13 +395,23 @@ export default function NodeSettingsSidebar() {
         </div>
 
         <div className="flex flex-col gap-1">
+          <span className="text-xs text-slate-400">Текст (сверху):</span>
+          <textarea
+            value={topText}
+            onChange={(e) => update({ topText: e.target.value })}
+            placeholder="Текст над узлом"
+            rows={2}
+            className="w-full px-2 py-1 text-sm rounded bg-slate-700 text-slate-100 border border-slate-600 outline-none focus:border-cyan-400 resize-y min-h-[2.5rem]"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
           <span className="text-xs text-slate-400">Текст (снизу):</span>
-          <input
-            type="text"
+          <textarea
             value={bottomText}
             onChange={(e) => update({ bottomText: e.target.value })}
-            placeholder="Текст под обёрткой"
-            className="w-full px-2 py-1 text-sm rounded bg-slate-700 text-slate-100 border border-slate-600 outline-none focus:border-cyan-400"
+            placeholder="Текст под узлом"
+            rows={2}
+            className="w-full px-2 py-1 text-sm rounded bg-slate-700 text-slate-100 border border-slate-600 outline-none focus:border-cyan-400 resize-y min-h-[2.5rem]"
           />
         </div>
 
@@ -536,7 +554,7 @@ export default function NodeSettingsSidebar() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-slate-400">Размер:</span>
+          <span className="text-xs text-slate-400">Размеры надписей:</span>
           <div className="flex gap-0.5 flex-wrap mb-1">
             {NODE_FONT_SIZE_TARGETS.map(({ value: v, label: l }) => (
               <button
@@ -552,8 +570,12 @@ export default function NodeSettingsSidebar() {
           </div>
           <div className="flex gap-0.5 flex-wrap">
             {LABEL_FONT_SIZES.map((size) => {
-              const patch = nodeSizeTarget === 'label' ? { labelFontSize: size } : { bottomTextFontSize: size };
-              const current = nodeSizeTarget === 'label' ? labelFontSize : bottomTextFontSize;
+              const patch = nodeSizeTarget === 'label' ? { labelFontSize: size }
+                : nodeSizeTarget === 'topText' ? { topTextFontSize: size }
+                  : { bottomTextFontSize: size };
+              const current = nodeSizeTarget === 'label' ? labelFontSize
+                : nodeSizeTarget === 'topText' ? topTextFontSize
+                  : bottomTextFontSize;
               return (
                 <button
                   key={size}

@@ -110,14 +110,22 @@ export default function BlogLayout() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-10 bg-slate-50 dark:bg-imperial-bg flex flex-col">
-          <Outlet />
-          <footer className="mt-auto pt-6 pb-2 border-t border-white/10 text-center text-xs text-imperial-muted flex flex-wrap items-center justify-center gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative flex flex-col bg-slate-900">
+          <div
+            className="absolute inset-0 min-h-full bg-cover bg-center bg-no-repeat bg-slate-800"
+            style={{ backgroundImage: "url('/landing/early-access.jpg')" }}
+            aria-hidden
+          />
+          <div className="absolute inset-0 min-h-full bg-slate-900/70 dark:bg-slate-900/75" aria-hidden />
+          <div className="relative z-10 flex-1 flex flex-col min-h-0 p-4 sm:p-6 lg:p-10">
+            <Outlet />
+            <footer className="mt-auto pt-6 pb-2 border-t border-white/10 text-center text-xs text-imperial-muted flex flex-wrap items-center justify-center gap-3">
             <Link to="/terms" className="hover:text-imperial-gold transition-colors">Пользовательское соглашение</Link>
             <Link to="/privacy" className="hover:text-imperial-gold transition-colors">Политика конфиденциальности</Link>
             <Link to="/offer" className="hover:text-imperial-gold transition-colors">Оферта</Link>
             <Link to="/legal/contacts" className="hover:text-imperial-gold transition-colors">Контакты</Link>
           </footer>
+          </div>
         </div>
       </main>
     </div>

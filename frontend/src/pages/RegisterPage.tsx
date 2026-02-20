@@ -191,6 +191,11 @@ export default function RegisterPage() {
               Войти
             </Link>
           </p>
+          <p className="pt-2">
+            <Link to="/landing" className="text-sm text-gray-500 hover:text-primary-600 font-medium inline-flex items-center gap-1">
+              ← Назад на главную
+            </Link>
+          </p>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   Handle,
   NodeResizer,
@@ -42,6 +42,9 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
   const height = nodeHeight ?? data?.height ?? DEFAULT_NODE_HEIGHT;
   const labelFontSize = data?.labelFontSize ?? DEFAULT_LABEL_FONT_SIZE;
   const labelColor = data?.labelColor ?? DEFAULT_LABEL_COLOR;
+  const topText = data?.topText ?? '';
+  const topTextColor = data?.topTextColor ?? DEFAULT_LABEL_COLOR;
+  const topTextFontSize = data?.topTextFontSize ?? 12;
   const bottomText = data?.bottomText ?? '';
   const bottomTextColor = data?.bottomTextColor ?? DEFAULT_LABEL_COLOR;
   const bottomTextFontSize = data?.bottomTextFontSize ?? 12;
@@ -52,6 +55,8 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
   const dragWithChildren = data?.dragWithChildren !== false;
 
   const hasChildren = edges.some((e) => String(e.source) === String(id));
+  const labelWrapRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLTextAreaElement>(null);
 
   /** Hex #rrggbb → "r, g, b" для rgba(r, g, b, alpha). rgb(r g b) тоже поддерживается. */
   const hexToRgb = (c: string): string | null => {
@@ -82,6 +87,16 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
       };
     }));
   }, [id, getNodes, setNodes]);
+
+  // Подгонка высоты textarea под содержимое для вертикального центрирования
+  useEffect(() => {
+    const ta = labelRef.current;
+    const wrap = labelWrapRef.current;
+    if (!ta || !wrap) return;
+    const maxH = wrap.clientHeight;
+    ta.style.height = '0';
+    ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
+  }, [label, labelFontSize, width, height]);
 
   const deleteNode = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -242,6 +257,24 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
               URL
             </a>
           ) : null}
+          {/* Текст сверху — показывается только после добавления в сайдбаре */}
+          {topText ? (
+            <div className="shrink-0 min-w-0 w-full min-h-[1.5rem] max-h-[5rem] flex flex-col overflow-hidden mb-0.5">
+              <textarea
+                className="nodrag nopan w-full h-full min-h-[1.5rem] bg-transparent border-none outline-none text-center text-slate-100 resize-none overflow-auto text-xs"
+                style={{
+                  fontSize: topTextFontSize,
+                  color: topTextColor,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+                value={topText}
+                onChange={(evt) => updateNodeData(id, { topText: evt.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur(); }}
+                placeholder="Текст над узлом"
+              />
+            </div>
+          ) : null}
           {/* Обёртка (фон + рамка) — рисуется здесь, вращается вместе с карточкой */}
           <div
             className="flex-1 min-w-0 min-h-0 rounded-lg"
@@ -271,35 +304,55 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
                 className={
                   shape === 'diamond'
                     ? '-rotate-45 flex flex-col items-center justify-center flex-1 min-h-0 min-w-0 relative z-10'
-                    : 'flex flex-col flex-1 min-h-0 min-w-0 relative z-10'
+                    : 'flex flex-col flex-1 min-h-0 min-w-0 items-center justify-center relative z-10'
                 }
               >
-                {/* Название — в центре узла (карточки) */}
-                <div className="min-w-0 flex-1 flex flex-col justify-center">
-                  <input
-                    type="text"
-                    className="nodrag w-full bg-transparent border-none outline-none text-center text-slate-100 font-medium min-w-0"
-                    style={{ fontSize: labelFontSize, color: labelColor }}
+                {/* Название — центрировано по вертикали и горизонтали; автоперенос по словам */}
+                <div ref={labelWrapRef} className="min-w-0 min-h-0 flex-1 flex flex-col items-center justify-center overflow-hidden w-full">
+                  <textarea
+                    ref={labelRef}
+                    className="nodrag nopan w-full min-h-0 bg-transparent border-none outline-none text-center text-slate-100 font-medium resize-none overflow-auto"
+                    style={{
+                      fontSize: labelFontSize,
+                      color: labelColor,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
                     value={label}
-                    onChange={(evt) => updateNodeData(id, { label: evt.target.value })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        (e.target as HTMLInputElement).blur();
+                    onChange={(evt) => {
+                      updateNodeData(id, { label: evt.target.value });
+                      const ta = evt.target;
+                      const wrap = labelWrapRef.current;
+                      if (wrap) {
+                        ta.style.height = '0';
+                        ta.style.height = `${Math.min(ta.scrollHeight, wrap.clientHeight)}px`;
                       }
                     }}
-                    placeholder="Название"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur();
+                    }}
+                    placeholder="Название (несколько строк — Enter)"
                   />
                 </div>
               </div>
             </div>
           </div>
-          {/* Текст (снизу) — под обёрткой */}
+          {/* Текст (снизу) — показывается только после добавления в сайдбаре */}
           {bottomText ? (
-            <div
-              className="shrink-0 min-w-0 text-center truncate w-full mt-0.5"
-              style={{ fontSize: bottomTextFontSize, color: bottomTextColor }}
-            >
-              {bottomText}
+            <div className="shrink-0 min-w-0 w-full min-h-[1.5rem] max-h-[5rem] flex flex-col overflow-hidden mt-0.5">
+              <textarea
+                className="nodrag nopan w-full h-full min-h-[1.5rem] bg-transparent border-none outline-none text-center text-slate-100 resize-none overflow-auto text-xs"
+                style={{
+                  fontSize: bottomTextFontSize,
+                  color: bottomTextColor,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+                value={bottomText}
+                onChange={(evt) => updateNodeData(id, { bottomText: evt.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur(); }}
+                placeholder="Текст под узлом"
+              />
             </div>
           ) : null}
         </div>

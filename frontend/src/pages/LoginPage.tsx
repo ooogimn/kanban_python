@@ -178,6 +178,11 @@ export default function LoginPage() {
               Восстановить пароль
             </Link>
           </p>
+          <p className="pt-2">
+            <Link to="/landing" className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 font-medium inline-flex items-center gap-1">
+              ← Назад на главную
+            </Link>
+          </p>
         </div>
       </div>
     </div>

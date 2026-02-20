@@ -51,6 +51,7 @@ import SaasUsersPage from './pages/saas/SaasUsersPage';
 import SaasUserDetailPage from './pages/saas/SaasUserDetailPage';
 import SaasBlogPage from './pages/saas/SaasBlogPage';
 import SaasAdsPage from './pages/saas/SaasAdsPage';
+import CookieConsentBar from './components/CookieConsentBar';
 
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const GanttPage = lazy(() => import('./pages/GanttPage'));
@@ -78,6 +79,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <CookieConsentBar />
       <Routes>
         <Route path="/" element={<Outlet />}>
           <Route index element={<RootRedirect />} />

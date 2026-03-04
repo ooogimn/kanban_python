@@ -8,23 +8,26 @@ import App from './App';
 import NetworkStatus from './components/NetworkStatus';
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import ErrorBoundary from './components/ErrorBoundary';
+import { HelmetProvider } from 'react-helmet-async';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{
-          persister: createIDBPersister(),
-          buster: 'v1',
-        }}
-      >
-        <App />
-        <NetworkStatus />
-        <PwaUpdatePrompt />
-        <Toaster position="top-right" />
-      </PersistQueryClientProvider>
+      <HelmetProvider>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister: createIDBPersister(),
+            buster: 'v1',
+          }}
+        >
+          <App />
+          <NetworkStatus />
+          <PwaUpdatePrompt />
+          <Toaster position="top-right" />
+        </PersistQueryClientProvider>
+      </HelmetProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

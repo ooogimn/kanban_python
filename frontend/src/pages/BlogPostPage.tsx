@@ -5,6 +5,8 @@ import ReactMarkdown from 'react-markdown';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { blogApi } from '../api/blog';
+import { SEOMeta } from '../components/SEOMeta';
+import { JsonLd } from '../components/JsonLd';
 import ImageLightbox from '../components/ImageLightbox';
 import BlogAdInContent from '../components/BlogAdInContent';
 
@@ -53,6 +55,7 @@ export default function BlogPostPage() {
   if (error || !post) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-10">
+        <SEOMeta title="Статья не найдена" description="Такой статьи не существует." noindex />
         <p className="text-amber-400">Статья не найдена.</p>
         <Link to="/blog" className="text-imperial-gold hover:underline mt-4 inline-block">← К списку статей</Link>
       </div>
@@ -84,8 +87,40 @@ export default function BlogPostPage() {
   const [contentPart1, contentPart2] = getContentParts();
   const hasMidAd = contentPart2.length > 0;
 
+  // Базовый URL для schema, если mediaUrl вернул абсолютный путь, то используем его, иначе относительный преобразуем к абсолютному
+  const imgUrlStr = mediaUrl(post.image_url) ?? "";
+
+  const metaTitle = post.meta_title?.trim() || post.title;
+  const metaDescription = post.meta_description?.trim() || post.excerpt || post.title;
+  const canonicalUrl = post.canonical_url?.trim() || `/blog/${post.slug}`;
+  const customOgImage = post.og_image?.trim();
+  const absImgUrl = customOgImage || (imgUrlStr.startsWith('http') ? imgUrlStr : (typeof window !== 'undefined' && imgUrlStr ? `${window.location.origin}${imgUrlStr}` : imgUrlStr));
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": metaTitle,
+    "description": metaDescription,
+    "image": absImgUrl || "https://lukinterlab.ru/og-image.jpg",
+    "datePublished": post.published_at,
+    "author": {
+      "@type": "Organization",
+      "name": "Office Suite 360",
+      "url": "https://lukinterlab.ru"
+    }
+  };
+
   return (
     <article className="max-w-3xl mx-auto px-4 py-10">
+      <SEOMeta
+        title={metaTitle}
+        description={metaDescription}
+        url={canonicalUrl}
+        image={customOgImage || imgUrlStr || undefined}
+        type="article"
+      />
+      <JsonLd data={jsonLd} />
+
       <Link to="/blog" className="text-imperial-gold hover:underline text-sm mb-6 inline-block">← К списку статей</Link>
 
       {/* Главное медиа: видео или картинка */}

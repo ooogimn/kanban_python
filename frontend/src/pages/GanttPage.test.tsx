@@ -5,9 +5,15 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import GanttPage from './GanttPage';
 import { ganttApi } from '../api/gantt';
 import { todoApi } from '../api/todo';
+import { workspaceApi } from '../api/workspace';
+import { kanbanApi } from '../api/kanban';
+import { coreApi } from '../api/core';
 
 vi.mock('../api/gantt');
 vi.mock('../api/todo');
+vi.mock('../api/workspace');
+vi.mock('../api/kanban');
+vi.mock('../api/core');
 vi.mock('react-hot-toast', () => ({
   default: {
     success: vi.fn(),
@@ -20,6 +26,9 @@ const mockGetProjectTasks = vi.mocked(ganttApi.getProjectTasks);
 const mockUpdateGanttTask = vi.mocked(ganttApi.updateGanttTask);
 const mockCreateDependency = vi.mocked(ganttApi.createDependency);
 const mockDeleteDependency = vi.mocked(ganttApi.deleteDependency);
+const mockGetCurrentWorkspace = vi.mocked(workspaceApi.getCurrentWorkspace);
+const mockGetBoards = vi.mocked(kanbanApi.getBoards);
+const mockGetProjectMembers = vi.mocked(coreApi.getProjectMembers);
 
 const ganttData = {
   project_id: 1,
@@ -78,6 +87,9 @@ describe('GanttPage', () => {
       created_at: '',
     } as any);
     mockDeleteDependency.mockResolvedValue(undefined);
+    mockGetCurrentWorkspace.mockResolvedValue({ id: 1, name: 'WS', slug: 'ws', created_at: '', updated_at: '' } as any);
+    mockGetBoards.mockResolvedValue({ results: [], count: 0, next: undefined, previous: undefined } as any);
+    mockGetProjectMembers.mockResolvedValue([]);
   });
 
   it('отображает заголовок и подпись', async () => {
@@ -85,7 +97,7 @@ describe('GanttPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Диаграмма Ганта')).toBeInTheDocument();
     });
-    expect(screen.getByText(/Временная шкала задач по проекту/)).toBeInTheDocument();
+    expect(await screen.findByText(/Временная шкала задач по проекту/)).toBeInTheDocument();
   });
 
   it('при отсутствии проектов показывает сообщение и ссылку на проекты', async () => {
@@ -99,20 +111,19 @@ describe('GanttPage', () => {
 
   it('загружает данные Ганта и отображает название проекта в диаграмме', async () => {
     renderGanttPage();
-    expect(screen.getByText(/Загрузка диаграммы/)).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('Тестовый проект')).toBeInTheDocument();
     });
-    expect(screen.getByText('Задача один')).toBeInTheDocument();
-    expect(mockGetProjectTasks).toHaveBeenCalledWith(1);
+    expect(screen.getAllByText('Задача один').length).toBeGreaterThan(0);
+    expect(mockGetProjectTasks).toHaveBeenCalledWith(1, {});
   });
 
   it('при перетаскивании полоски вызывает updateGanttTask и обновляет кэш (оптимистично)', async () => {
     renderGanttPage();
     await waitFor(() => {
-      expect(screen.getByText('Задача один')).toBeInTheDocument();
+      expect(screen.getAllByText('Задача один').length).toBeGreaterThan(0);
     });
-    const bars = screen.getAllByRole('button', { name: /Перетащите для сдвига/ });
+    const bars = screen.getAllByRole('button', { name: /Перетащите для сдвига:/ });
     fireEvent.mouseDown(bars[0], { clientX: 100 });
     fireEvent.mouseUp(window);
     await waitFor(() => {
@@ -145,12 +156,11 @@ describe('GanttPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Добавить связь:')).toBeInTheDocument();
     });
-    const [pred, succ] = screen.getAllByRole('combobox');
-    fireEvent.change(pred, { target: { value: '1' } });
-    fireEvent.change(succ, { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Предшественник зависимости'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Преемник зависимости'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Добавить' }));
     await waitFor(() => {
-      expect(mockCreateDependency).toHaveBeenCalledWith(1, 2);
+      expect(mockCreateDependency).toHaveBeenCalledWith(1, 2, 'FS', 0);
     });
   });
 

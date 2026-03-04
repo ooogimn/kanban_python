@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { User } from '../types';
+import { User, SocialProvider } from '../types';
 import { authApi } from '../api/auth';
 import { apiClient } from '../api/client';
 
@@ -9,6 +9,7 @@ interface AuthState {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   telegramLogin: (data: any) => Promise<void>;
+  socialLogin: (provider: SocialProvider, code: string, state: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User | null) => void;
   init: () => void;
@@ -54,6 +55,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const response = await authApi.telegramLogin(data);
+      apiClient.setTokens({ access: response.access, refresh: response.refresh });
+      localStorage.setItem('user', JSON.stringify(response.user));
+      set({
+        user: response.user,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  socialLogin: async (provider: SocialProvider, code: string, state: string) => {
+    set({ isLoading: true });
+    try {
+      const response = await authApi.socialExchange(provider, { code, state });
       apiClient.setTokens({ access: response.access, refresh: response.refresh });
       localStorage.setItem('user', JSON.stringify(response.user));
       set({

@@ -1,27 +1,28 @@
 import { useState, useEffect } from 'react';
-
-const STORAGE_KEY = 'cookie_consent';
-
-export type CookieConsentChoice = 'all' | 'necessary' | 'none';
+import { Link } from 'react-router-dom';
+import {
+  getCookieConsent,
+  onOpenCookieConsentSettings,
+  setCookieConsent,
+  type CookieConsentChoice,
+} from '../lib/cookieConsent';
 
 export default function CookieConsentBar() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === null) setVisible(true);
-    } catch {
+    const saved = getCookieConsent();
+    if (saved === null) setVisible(true);
+
+    const unsubscribe = onOpenCookieConsentSettings(() => {
       setVisible(true);
-    }
+    });
+
+    return unsubscribe;
   }, []);
 
   const save = (choice: CookieConsentChoice) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, choice);
-    } catch {
-      // ignore
-    }
+    setCookieConsent(choice);
     setVisible(false);
   };
 
@@ -33,10 +34,17 @@ export default function CookieConsentBar() {
       role="dialog"
       aria-label="Согласие на использование cookie"
     >
-      <p className="text-sm text-slate-200 max-w-2xl">
-        Мы используем cookie для работы сайта, аналитики и улучшения сервиса. Вы можете разрешить все
-        cookie, только необходимые для работы сайта или отклонить необязательные.
-      </p>
+      <div className="max-w-2xl">
+        <p className="text-sm text-slate-200">
+          Мы используем cookie для работы сайта, аналитики и улучшения сервиса. Вы можете разрешить все
+          cookie, только необходимые для работы сайта или отклонить необязательные.
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          Подробнее: <Link to="/privacy" className="text-cyan-300 hover:text-cyan-200 underline">Политика конфиденциальности</Link>,{' '}
+          <Link to="/personal-data" className="text-cyan-300 hover:text-cyan-200 underline">Политика обработки ПДн</Link>,{' '}
+          <Link to="/legal/contacts" className="text-cyan-300 hover:text-cyan-200 underline">Контакты</Link>.
+        </p>
+      </div>
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <button
           type="button"

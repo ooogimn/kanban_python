@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+const backendProxyTarget = process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:8020'
+const backendProxyWsTarget = backendProxyTarget.replace(/^http/, 'ws')
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
@@ -89,15 +92,15 @@ export default defineConfig({
     strictPort: false,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: backendProxyTarget,
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://localhost:8000',
+        target: backendProxyTarget,
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: backendProxyWsTarget,
         ws: true,
       },
     },

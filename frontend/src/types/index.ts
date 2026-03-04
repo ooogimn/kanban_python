@@ -51,6 +51,15 @@ export interface AuthTokens {
   refresh: string;
 }
 
+export type SocialProvider = 'google' | 'yandex' | 'telegram' | 'vk' | 'mail';
+
+export interface AuthResponse extends AuthTokens {
+  user: User;
+  auth_provider?: SocialProvider | 'password';
+  is_new_user?: boolean;
+  needs_password_setup?: boolean;
+}
+
 export interface LoginCredentials {
   username: string;
   password: string;
@@ -434,6 +443,8 @@ export interface Comment {
   parent?: number;
   replies_count?: number;
   replies?: Comment[];
+  entity_type?: string;
+  object_id?: number;
   is_edited: boolean;
   edited_at?: string;
   created_at: string;

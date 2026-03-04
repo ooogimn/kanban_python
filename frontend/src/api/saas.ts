@@ -8,6 +8,14 @@ export interface SaasStats {
   active_workspaces: number;
   mrr: string;
   registrations: Array<{ month: string | null; count: number }>;
+  // R3: revenue breakdown (опционально — появится когда backend добавит)
+  arr?: string;
+  active_subscriptions?: number;
+  trial_subscriptions?: number;
+  churn_count?: number;
+  revenue_by_month?: Array<{ month: string; revenue: number; count: number }>;
+  revenue_by_provider?: Array<{ provider: string; total: number; count: number }>;
+  revenue_by_plan?: Array<{ plan: string; total: number; count: number }>;
 }
 
 export interface SaasPlan {
@@ -57,6 +65,19 @@ export const saasApi = {
   getStats: async (): Promise<SaasStats> => {
     const response = await api.get('/saas/dashboard/stats/');
     return response.data;
+  },
+
+  // R3: Revenue Dashboard — детальная аналитика платежей
+  // Endpoint добавит Cursor AI в R3-S4
+  getRevenueStats: async (): Promise<SaasStats> => {
+    try {
+      const response = await api.get('/saas/dashboard/revenue/');
+      return response.data;
+    } catch {
+      // fallback: возвращаем базовую stats пока endpoint не готов
+      const response = await api.get('/saas/dashboard/stats/');
+      return response.data;
+    }
   },
 
   getPlans: async (): Promise<SaasPlan[]> => {
@@ -236,6 +257,10 @@ export interface SaasBlogPost {
   views_count: number;
   created_at: string;
   updated_at: string;
+  meta_title?: string;
+  meta_description?: string;
+  canonical_url?: string;
+  og_image?: string;
 }
 
 export interface SaasBlogPostCreate {
@@ -248,6 +273,10 @@ export interface SaasBlogPostCreate {
   is_published?: boolean;
   published_at?: string | null;
   main_media_autoplay?: boolean;
+  meta_title?: string;
+  meta_description?: string;
+  canonical_url?: string;
+  og_image?: string;
 }
 
 export interface SaasAd {

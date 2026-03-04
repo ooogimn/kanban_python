@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { TelegramAuthData } from '../types';
+import { TelegramAuthData, SocialProvider } from '../types';
+import { authApi } from '../api/auth';
 import toast from 'react-hot-toast';
 
 const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '';
@@ -28,11 +29,33 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, telegramLogin } = useAuthStore();
+  const { login, telegramLogin, socialLogin } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = searchParams.get('next') || '/dashboard';
   const telegramWidgetRef = useRef<HTMLDivElement>(null);
+  const [socialProviders, setSocialProviders] = useState<Record<SocialProvider, boolean>>({
+    google: false,
+    yandex: false,
+    telegram: Boolean(TELEGRAM_BOT_USERNAME),
+    vk: false,
+    mail: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const providers = await authApi.getSocialProviders();
+        if (!cancelled) setSocialProviders(providers);
+      } catch {
+        // ignore: fallback to env-based Telegram only
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Обработка возврата из Telegram Login Widget (редирект с hash в URL)
   useEffect(() => {
@@ -62,6 +85,55 @@ export default function LoginPage() {
     })();
     return () => { cancelled = true; };
   }, [telegramLogin, navigate]);
+
+  // OAuth callback: /login?social_provider=google&code=...&state=...
+  useEffect(() => {
+    const provider = searchParams.get('social_provider') as SocialProvider | null;
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const error = searchParams.get('error');
+    if (!provider) return;
+    if (error) {
+      toast.error(`Вход через ${provider} отклонён или завершился ошибкой.`);
+      return;
+    }
+    if (!code || !state) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        await socialLogin(provider, code, state);
+        if (cancelled) return;
+        toast.success(`Вход через ${provider} выполнен`);
+        navigate(returnTo.startsWith('/') ? returnTo : '/dashboard');
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg =
+          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+          `Ошибка входа через ${provider}`;
+        toast.error(msg);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, socialLogin, navigate, returnTo]);
+
+  const startSocialLogin = async (provider: SocialProvider) => {
+    try {
+      setIsLoading(true);
+      const { auth_url } = await authApi.getSocialStartUrl(provider, '/login');
+      window.location.href = auth_url;
+    } catch (error: unknown) {
+      const msg =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        `Не удалось начать вход через ${provider}`;
+      toast.error(msg);
+      setIsLoading(false);
+    }
+  };
 
   // Подключение Telegram Login Widget (скрипт с data-telegram-login)
   useEffect(() => {
@@ -158,7 +230,51 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {TELEGRAM_BOT_USERNAME && (
+        {(socialProviders.google || socialProviders.yandex || socialProviders.vk || socialProviders.mail) && (
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 text-center">Быстрый вход через</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {socialProviders.google && (
+                <button
+                  type="button"
+                  onClick={() => startSocialLogin('google')}
+                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm"
+                >
+                  Google
+                </button>
+              )}
+              {socialProviders.yandex && (
+                <button
+                  type="button"
+                  onClick={() => startSocialLogin('yandex')}
+                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm"
+                >
+                  Яндекс
+                </button>
+              )}
+              {socialProviders.vk && (
+                <button
+                  type="button"
+                  onClick={() => startSocialLogin('vk')}
+                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm"
+                >
+                  VK
+                </button>
+              )}
+              {socialProviders.mail && (
+                <button
+                  type="button"
+                  onClick={() => startSocialLogin('mail')}
+                  className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm"
+                >
+                  Mail
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(TELEGRAM_BOT_USERNAME || socialProviders.telegram) && (
           <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-600 text-center">
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">Или войти через Telegram</p>
             <div ref={telegramWidgetRef} className="flex justify-center min-h-[44px]" />

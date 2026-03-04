@@ -14,13 +14,28 @@ import TaskForm from '../components/TaskForm';
 import { ChecklistBlock } from '../components/todo/Checklist';
 import { useKanbanWebSocket } from '../hooks/useWebSocket';
 import toast from 'react-hot-toast';
-import { toPng } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { FileDown, Image, Table2, Maximize2, Minimize2, List, LayoutGrid, ChevronDown, ChevronRight, GripVertical, Lock } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Lock, Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
 
 /** ID виртуальной колонки «Нераспределённые» (задачи этого спринта без колонки). */
 const UNPLACED_COLUMN_ID = -1;
+
+const STATUS_LABELS: Record<string, string> = {
+  todo: 'К выполнению',
+  in_progress: 'В работе',
+  review: 'На проверке',
+  completed: 'Завершена',
+  cancelled: 'Отменена',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Низкий',
+  medium: 'Средний',
+  high: 'Высокий',
+  urgent: 'Срочный',
+};
 
 export default function KanbanPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,6 +52,7 @@ export default function KanbanPage() {
   /** Меню «+ Задача» в колонке: открыть создание новой или выбор существующей для добавления в колонку */
   const [addTaskMenuFor, setAddTaskMenuFor] = useState<{ columnId: number; boardId: number } | null>(null);
   const [taskSearch, setTaskSearch] = useState(() => searchParams.get('search') || '');
+  const [taskStatusFilter, setTaskStatusFilter] = useState<string>(() => searchParams.get('status') || '');
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>(() => searchParams.get('priority') || '');
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState<number | ''>(() => {
     try {
@@ -49,13 +65,18 @@ export default function KanbanPage() {
     }
   });
   const [isTaskDragging, setIsTaskDragging] = useState(false);
-  const [exportLoading, setExportLoading] = useState<'pdf' | 'png' | 'excel' | null>(null);
+  const [exportLoading, setExportLoading] = useState<'jpg' | 'pdf' | 'excel' | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [listAccordionOpen, setListAccordionOpen] = useState<Set<number>>(new Set());
+  const [boardsListSearch, setBoardsListSearch] = useState('');
+  const [boardsListViewMode, setBoardsListViewMode] = useState<'list' | 'grid'>('list');
+  const [boardsListFullscreen, setBoardsListFullscreen] = useState(false);
+  const [boardsListExportLoading, setBoardsListExportLoading] = useState<'jpg' | 'pdf' | null>(null);
   const columnsScrollRef = useRef<HTMLDivElement | null>(null);
   const columnsScrollTopRef = useRef<HTMLDivElement | null>(null);
   const kanbanFullscreenRef = useRef<HTMLDivElement | null>(null);
+  const boardsListRef = useRef<HTMLDivElement | null>(null);
   const scrollSyncRef = useRef(false);
   const [columnsScrollWidth, setColumnsScrollWidth] = useState(0);
 
@@ -82,12 +103,13 @@ export default function KanbanPage() {
     if (!boardId) return;
     const next: Record<string, string> = { project: projectId || '', board: boardId };
     if (taskSearch.trim()) next.search = taskSearch.trim();
+    if (taskStatusFilter) next.status = taskStatusFilter;
     if (taskPriorityFilter) next.priority = taskPriorityFilter;
     if (taskAssigneeFilter) next.assigned_to = String(taskAssigneeFilter);
     const current = Object.fromEntries([...searchParams.entries()]);
     if (JSON.stringify(current) === JSON.stringify(next)) return;
     setSearchParams(next, { replace: true });
-  }, [boardId, projectId, taskSearch, taskPriorityFilter, taskAssigneeFilter, searchParams, setSearchParams]);
+  }, [boardId, projectId, taskSearch, taskStatusFilter, taskPriorityFilter, taskAssigneeFilter, searchParams, setSearchParams]);
 
   const { data: boards } = useQuery({
     queryKey: ['kanban-boards', currentWorkspace?.id, projectId],
@@ -328,14 +350,20 @@ export default function KanbanPage() {
     const filterItem = (item: KanbanItem) => {
       const q = taskSearch.trim().toLowerCase();
       if (q && !item.title?.toLowerCase().includes(q)) return false;
+      if (taskStatusFilter && (item.status || '') !== taskStatusFilter) return false;
       if (taskPriorityFilter && (item.priority || '') !== taskPriorityFilter) return false;
+      if (taskAssigneeFilter) {
+        const a = (item as KanbanItem & { assigned_to?: number | number[] }).assigned_to;
+        const ids = a == null ? [] : Array.isArray(a) ? a : [a];
+        if (!ids.includes(taskAssigneeFilter)) return false;
+      }
       return true;
     };
     columns.forEach((col) => {
       result[col.id] = (itemsByColumn[col.id] || []).filter(filterItem);
     });
     return result;
-  }, [columns, taskSearch, taskPriorityFilter]);
+  }, [columns, taskSearch, taskStatusFilter, taskPriorityFilter, taskAssigneeFilter]);
 
   const exportOptions = { pixelRatio: 2, cacheBust: true };
   const handleExportPdf = useCallback(() => {
@@ -353,6 +381,7 @@ export default function KanbanPage() {
           });
           pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
           pdf.save(`${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.pdf`);
+          toast.success('Сохранено в PDF');
         };
         img.onerror = () => setExportLoading(null);
         img.src = dataUrl;
@@ -364,20 +393,21 @@ export default function KanbanPage() {
       .finally(() => setExportLoading(null));
   }, [boardData?.name]);
 
-  const handleExportPng = useCallback(() => {
+  const handleExportJpg = useCallback(() => {
     const el = columnsScrollRef.current;
     if (!el) return;
-    setExportLoading('png');
-    toPng(el, exportOptions)
+    setExportLoading('jpg');
+    toJpeg(el, { ...exportOptions, quality: 0.95 })
       .then((dataUrl) => {
         const a = document.createElement('a');
         a.href = dataUrl;
-        a.download = `${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.png`;
+        a.download = `${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.jpg`;
         a.click();
+        toast.success('Сохранено в JPG');
       })
       .catch((err) => {
-        console.error('Export PNG failed', err);
-        toast.error('Не удалось сохранить PNG');
+        console.error('Export JPG failed', err);
+        toast.error('Не удалось сохранить JPG');
       })
       .finally(() => setExportLoading(null));
   }, [boardData?.name]);
@@ -454,8 +484,84 @@ export default function KanbanPage() {
     }
   }, []);
 
+  const boardsListExportOptions = { pixelRatio: 2, cacheBust: true };
+  const handleBoardsListFullscreen = useCallback(() => {
+    const el = boardsListRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setBoardsListFullscreen(true)).catch(() => toast.error('Полный экран недоступен'));
+    } else {
+      document.exitFullscreen?.().then(() => setBoardsListFullscreen(false));
+    }
+  }, []);
+  const handleBoardsListExportJpg = useCallback(() => {
+    const el = boardsListRef.current;
+    if (!el) return;
+    setBoardsListExportLoading('jpg');
+    toJpeg(el, { ...boardsListExportOptions, quality: 0.95 })
+      .then((dataUrl) => {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `sprints-${Date.now()}.jpg`;
+        a.click();
+        toast.success('Сохранено в JPG');
+      })
+      .catch((err) => {
+        console.error('Export JPG failed', err);
+        toast.error('Не удалось сохранить JPG');
+      })
+      .finally(() => setBoardsListExportLoading(null));
+  }, []);
+  const handleBoardsListExportPdf = useCallback(() => {
+    const el = boardsListRef.current;
+    if (!el) return;
+    setBoardsListExportLoading('pdf');
+    toPng(el, boardsListExportOptions)
+      .then((dataUrl) => {
+        const img = new Image();
+        img.onload = () => {
+          const pdf = new jsPDF({
+            orientation: img.width > img.height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [img.width, img.height],
+          });
+          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+          pdf.save(`sprints-${Date.now()}.pdf`);
+          toast.success('Сохранено в PDF');
+        };
+        img.onerror = () => setBoardsListExportLoading(null);
+        img.src = dataUrl;
+      })
+      .catch((err) => {
+        console.error('Export PDF failed', err);
+        toast.error('Не удалось сохранить PDF');
+      })
+      .finally(() => setBoardsListExportLoading(null));
+  }, []);
+  const handleBoardsListExportExcel = useCallback(() => {
+    const list = boards?.results ?? [];
+    const filtered = boardsListSearch.trim()
+      ? list.filter((b) => b.name?.toLowerCase().includes(boardsListSearch.trim().toLowerCase()))
+      : list;
+    const rows: (string | number)[][] = [
+      ['Название спринта', 'Проект'],
+      ...filtered.map((b) => [b.name ?? '', (projects?.results ?? []).find((p) => p.id === b.project)?.name ?? '']),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 40 }, { wch: 24 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Спринты');
+    XLSX.writeFile(wb, `sprints-${Date.now()}.xlsx`);
+    toast.success('Сохранено в Excel');
+  }, [boards?.results, boardsListSearch, projects?.results]);
+
   useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+        setBoardsListFullscreen(false);
+      }
+    };
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
@@ -573,24 +679,100 @@ export default function KanbanPage() {
       );
     }
 
+    const filteredBoardsList = boardsListSearch.trim()
+      ? boardsList.filter((b) => b.name?.toLowerCase().includes(boardsListSearch.trim().toLowerCase()))
+      : boardsList;
+
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-imperial-text">Этапы проектов</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Все спринты пространства «{currentWorkspace.name}». Фильтр по проекту.
-          </p>
+      <div ref={boardsListRef} className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Этапы проектов</h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-2">
+              Все спринты пространства «{currentWorkspace.name}».
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setBoardCreateOpen(true)}
+              title="Создать спринт"
+              className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
+            >
+              +
+            </button>
+            <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+            <button
+              type="button"
+              onClick={handleBoardsListExportJpg}
+              disabled={!!boardsListExportLoading}
+              className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+            >
+              JPG
+            </button>
+            <button
+              type="button"
+              onClick={handleBoardsListExportPdf}
+              disabled={!!boardsListExportLoading}
+              className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+            >
+              PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleBoardsListExportExcel}
+              className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs"
+            >
+              Excel
+            </button>
+            <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+            <button
+              type="button"
+              onClick={() => setBoardsListViewMode('grid')}
+              title="Сетка"
+              className={`p-1.5 rounded-md border ${boardsListViewMode === 'grid' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setBoardsListViewMode('list')}
+              title="Список"
+              className={`p-1.5 rounded-md border ${boardsListViewMode === 'list' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+            >
+              <List className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+            <button
+              type="button"
+              onClick={handleBoardsListFullscreen}
+              className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              title={boardsListFullscreen ? 'Свернуть' : 'Во весь экран'}
+            >
+              {boardsListFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
 
-        <div className="bg-white dark:bg-imperial-surface/80 rounded-xl border border-slate-200 dark:border-white/10 p-4 flex flex-wrap gap-4 items-end shadow-sm">
-          <div className="min-w-0 sm:min-w-[220px]">
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Проект</label>
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700 p-2 flex flex-wrap gap-2 items-end">
+          <div className="min-w-0 flex-1 sm:flex-initial sm:min-w-[170px]">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Поиск</label>
+            <input
+              type="search"
+              placeholder="Название спринта..."
+              value={boardsListSearch}
+              onChange={(e) => setBoardsListSearch(e.target.value)}
+              className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[11.8rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            />
+          </div>
+          <div className="min-w-0 flex-1 sm:flex-initial">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Проект</label>
             <select
               value={projectId || ''}
               onChange={(e) =>
                 setSearchParams(e.target.value ? { project: e.target.value } : {}, { replace: true })
               }
-              className="px-3 py-2 border border-slate-300 dark:border-white/20 rounded-lg focus:ring-2 focus:ring-imperial-gold/50 w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 [&_option]:bg-white [&_option]:text-slate-900 dark:[&_option]:bg-slate-800 dark:[&_option]:text-slate-100"
+              className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[10.2rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             >
               <option value="">Все проекты</option>
               {(projects?.results ?? []).map((p) => (
@@ -600,42 +782,50 @@ export default function KanbanPage() {
               ))}
             </select>
           </div>
-          <div className="ml-auto">
-            <button
-              onClick={() => setBoardCreateOpen(true)}
-              className="px-4 py-2 bg-imperial-gold text-imperial-bg rounded-lg hover:opacity-90 font-medium"
-            >
-              + Создать спринт
-            </button>
-          </div>
         </div>
 
-        <div className="bg-white dark:bg-imperial-surface/80 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden">
-          {boardsList.length === 0 ? (
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {filteredBoardsList.length === 0 ? (
             <div className="p-8 text-center text-slate-500 dark:text-slate-400">
               {projectId
                 ? 'Нет спринтов в этом проекте. Создайте спринт.'
-                : 'Нет спринтов в пространстве. Создайте спринт или выберите проект.'}
+                : boardsListSearch.trim()
+                  ? 'Нет спринтов по запросу.'
+                  : 'Нет спринтов в пространстве. Создайте спринт или выберите проект.'}
+            </div>
+          ) : boardsListViewMode === 'grid' ? (
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredBoardsList.map((board) => (
+                <Link
+                  key={board.id}
+                  to={`/kanban?project=${board.project}&board=${board.id}`}
+                  className="rounded-lg border border-slate-200 dark:border-slate-600 p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors block text-left"
+                >
+                  <h3 className="font-medium text-slate-900 dark:text-slate-100 truncate">{board.name}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {board.project_name && <span className="text-primary-600 dark:text-primary-400">{board.project_name}</span>}
+                  </p>
+                  <span className="text-primary-600 dark:text-primary-400 text-sm mt-2 inline-block">Открыть →</span>
+                </Link>
+              ))}
             </div>
           ) : (
-            <ul className="divide-y divide-slate-200 dark:divide-white/10">
-              {boardsList.map((board) => (
+            <ul className="divide-y divide-slate-200 dark:divide-slate-600">
+              {filteredBoardsList.map((board) => (
                 <li key={board.id}>
                   <Link
                     to={`/kanban?project=${board.project}&board=${board.id}`}
-                    className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/5 block transition-colors"
+                    className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 block transition-colors"
                   >
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                        {board.name}
-                      </h3>
+                      <h3 className="font-medium text-slate-900 dark:text-slate-100 truncate">{board.name}</h3>
                       <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                         {board.project_name && (
-                          <span className="text-imperial-gold">{board.project_name}</span>
+                          <span className="text-primary-600 dark:text-primary-400">{board.project_name}</span>
                         )}
                       </p>
                     </div>
-                    <span className="text-imperial-gold text-sm shrink-0 ml-2">Открыть →</span>
+                    <span className="text-primary-600 dark:text-primary-400 text-sm shrink-0 ml-2">Открыть →</span>
                   </Link>
                 </li>
               ))}
@@ -668,99 +858,169 @@ export default function KanbanPage() {
     }
   };
 
+  const firstColumnId = columns.find((c) => c.id !== UNPLACED_COLUMN_ID)?.id ?? columns[0]?.id;
+  const currentProjectName = projects?.results?.find((p) => p.id === boardData?.project)?.name ?? '';
+
   return (
     <div ref={kanbanFullscreenRef} className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{boardData?.name || 'Этап'}</h1>
-        <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">{boardData?.name || 'Этап'}</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">
+            {currentProjectName ? `Спринт · ${currentProjectName}` : 'Управление спринтом'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => firstColumnId != null && setTaskCreateColumnId(firstColumnId)}
+            title="Новая задача"
+            className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
+          >
+            +
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={handleExportJpg}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            JPG
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            Excel
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={() => setViewMode('kanban')}
+            title="Сетка"
+            className={`p-1.5 rounded-md border ${viewMode === 'kanban' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            title="Список"
+            className={`p-1.5 rounded-md border ${viewMode === 'list' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={() => setBoardEditOpen(true)}
+            className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            title="Редактировать спринт"
+          >
+            ✏️
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteBoard}
+            disabled={deleteBoardMutation.isPending}
+            className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 hover:text-red-600 dark:hover:text-red-400"
+            title="Удалить спринт"
+          >
+            🗑️
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={handleFullscreen}
+            className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            title={isFullscreen ? 'Свернуть' : 'Во весь экран'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Фильтры — как на странице Задачи */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700 p-2 flex flex-wrap gap-2 items-end">
+        <div className="min-w-0 flex-1 sm:flex-initial sm:min-w-[170px]">
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Поиск</label>
           <input
             type="search"
-            placeholder="Поиск задач..."
+            placeholder="Название или описание..."
             value={taskSearch}
             onChange={(e) => setTaskSearch(e.target.value)}
-            className="px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-md text-xs w-full sm:w-32 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
+            className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[11.8rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           />
+        </div>
+        <div className="min-w-0 flex-1 sm:flex-initial">
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Проект</label>
+          <select
+            disabled
+            className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[10.2rem] bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-not-allowed"
+            value={boardData?.project ?? ''}
+            title="Текущий проект спринта"
+          >
+            <option value={boardData?.project ?? ''}>{currentProjectName || '—'}</option>
+          </select>
+        </div>
+        <div className="min-w-0">
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Статус</label>
+          <select
+            value={taskStatusFilter}
+            onChange={(e) => setTaskStatusFilter(e.target.value)}
+            className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[8.5rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+          >
+            <option value="">Все</option>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-0">
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Приоритет</label>
           <select
             value={taskPriorityFilter}
             onChange={(e) => setTaskPriorityFilter(e.target.value)}
-            className="px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-md text-xs w-full sm:w-24 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100"
+            className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[8.5rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           >
-            <option value="">Все приоритеты</option>
-            <option value="low">Низкий</option>
-            <option value="medium">Средний</option>
-            <option value="high">Высокий</option>
-            <option value="urgent">Срочный</option>
+            <option value="">Все</option>
+            {Object.entries(PRIORITY_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
           </select>
-          {currentWorkspace?.id && (
+        </div>
+        {currentWorkspace?.id && (
+          <div className="min-w-0 flex-1 sm:flex-initial">
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Исполнитель</label>
             <select
               value={taskAssigneeFilter}
               onChange={(e) => setTaskAssigneeFilter(e.target.value ? Number(e.target.value) : '')}
-              className="px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-md text-xs w-full sm:w-28 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100"
+              className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[10.2rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
             >
-              <option value="">Все исполнители</option>
+              <option value="">Все</option>
               {(Array.isArray(members) ? members : []).map((m: { user?: { id: number; username?: string } }) => (
                 <option key={m.user?.id} value={m.user?.id ?? ''}>
                   {m.user?.username ?? `User ${m.user?.id}`}
                 </option>
               ))}
             </select>
-          )}
-        </div>
-        <div className="flex gap-1 shrink-0 items-center">
-          <button
-            onClick={handleExportPdf}
-            disabled={!!exportLoading}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-imperial-gold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50"
-            title="Сохранить в PDF"
-          >
-            <FileDown className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleExportPng}
-            disabled={!!exportLoading}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-imperial-gold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50"
-            title="Сохранить в PNG"
-          >
-            <Image className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleExportExcel}
-            disabled={!!exportLoading}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-imperial-gold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50"
-            title="Сохранить в Excel (CSV)"
-          >
-            <Table2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleFullscreen}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-imperial-gold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"
-            title={isFullscreen ? 'Выйти из полноэкранного режима' : 'На весь экран'}
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => setViewMode(viewMode === 'kanban' ? 'list' : 'kanban')}
-            className={`p-2 rounded-lg ${viewMode === 'list' ? 'text-amber-500 bg-amber-500/10 dark:bg-amber-500/10' : 'text-gray-500 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-white/10'}`}
-            title={viewMode === 'kanban' ? 'Показать список задач' : 'Сетка — вернуться к канбан-доске'}
-          >
-            {viewMode === 'kanban' ? <List className="w-5 h-5 text-amber-500" /> : <LayoutGrid className="w-5 h-5 text-current" />}
-          </button>
-          <button
-            onClick={() => setBoardEditOpen(true)}
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-imperial-gold rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"
-            title="Редактировать спринт"
-          >
-            ✏️
-          </button>
-          <button
-            onClick={handleDeleteBoard}
-            disabled={deleteBoardMutation.isPending}
-            className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-50"
-            title="Удалить спринт"
-          >
-            🗑️
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {boardEditOpen && boardData && (

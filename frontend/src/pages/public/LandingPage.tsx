@@ -4,6 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { blogApi } from '../../api/blog';
+import { LEGAL_LINKS } from '../../constants/legalLinks';
+import { SEOMeta } from '../../components/SEOMeta';
+import { JsonLd } from '../../components/JsonLd';
+import { openCookieConsentSettings } from '../../lib/cookieConsent';
 
 // Изображения лендинга: положите файлы в frontend/public/landing/ (имена: hero.jpg, mission.jpg, philosophy.jpg, visualization.jpg, time.jpg, office.jpg, analytics.jpg, ai.jpg, tech.jpg, early-access.jpg)
 const heroImage = '/landing/hero.jpg';
@@ -40,8 +44,8 @@ function HeroVideoWithVolume() {
   useEffect(() => {
     const el = videoRef.current;
     if (!el) return;
-    const play = () => el.play().catch(() => {});
-    el.play().catch(() => {});
+    const play = () => el.play().catch(() => { });
+    el.play().catch(() => { });
     el.addEventListener('loadeddata', play);
     return () => el.removeEventListener('loadeddata', play);
   }, []);
@@ -101,9 +105,9 @@ function HeroVideoWithVolume() {
             aria-label={isMuted ? 'Включить звук' : 'Выключить звук'}
           >
             {isMuted ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" /></svg>
             ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
             )}
           </button>
           <input
@@ -123,7 +127,16 @@ function HeroVideoWithVolume() {
   );
 }
 
-const sections = [
+interface LandingSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  bullets?: string[];
+  cta?: { label: string; href: string; note?: string };
+  image: string;
+}
+
+const sections: LandingSection[] = [
   {
     id: 'core',
     title: 'Философия Единого Ядра: Всё есть Задача',
@@ -184,14 +197,7 @@ const sections = [
   },
 ];
 
-const FOOTER_LINKS = [
-  { label: 'Блог', href: '/blog' },
-  { label: 'Пользовательское соглашение', href: '/terms' },
-  { label: 'Политика конфиденциальности', href: '/privacy' },
-  { label: 'Политика обработки ПДн', href: '/personal-data' },
-  { label: 'Публичная оферта', href: '/offer' },
-  { label: 'Контакты', href: '/legal/contacts' },
-];
+const FOOTER_LINKS = [{ label: 'Блог', href: '/blog' }, ...LEGAL_LINKS];
 
 /** URL медиа: при другом origin подменяем на текущий. */
 function mediaUrl(url: string | null | undefined): string | null {
@@ -267,13 +273,34 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (videoModalType === null) return;
-    const play = () => modalVideoRef.current?.play().catch(() => {});
+    const play = () => modalVideoRef.current?.play().catch(() => { });
     const t = setTimeout(play, 0);
     return () => clearTimeout(t);
   }, [videoModalType]);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Office Suite 360",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "description": "Единое пространство для управления проектами, задачами, визуализации и совместной работы. Канбан, диаграммы Гантта, календари.",
+    "url": "https://lukinterlab.ru",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "RUB"
+    }
+  };
+
   return (
     <>
+      <SEOMeta
+        title="Управление проектами и задачами"
+        description="Office Suite 360 - единое пространство для управления проектами, задачами, визуализации и совместной работы. Канбан, диаграммы Гантта, календари."
+        url="/"
+      />
+      <JsonLd data={jsonLd} />
       <div className="min-h-screen bg-slate-950 text-white">
         {/* Hero — картинка во весь экран, текст и кнопки поверх */}
         <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-900">
@@ -283,10 +310,10 @@ export default function LandingPage() {
             className="absolute inset-0 w-full h-full object-contain"
           />
           <div
-          className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/25 to-black/45"
+            className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/25 to-black/45"
             aria-hidden
           />
-        <div className="absolute bottom-[6px] right-2 h-[12px] w-[120px] bg-green-900" aria-hidden />
+          <div className="absolute bottom-[6px] right-2 h-[12px] w-[120px] bg-green-900" aria-hidden />
           {/* Видео по центру: поверх фона, под кнопками; автоплей со звуком; своя кнопка громкости — всегда видна */}
           <HeroVideoWithVolume />
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center pointer-events-none">
@@ -367,136 +394,143 @@ export default function LandingPage() {
               </div>
             </div>
           )}
-      </section>
+        </section>
 
-      {/* Последние новости — вторая секция, 9 постов (3x3); фон mission.jpg */}
-      <section
-        className="relative py-16 px-4 border-t border-cyan-500/10 bg-contain bg-center bg-no-repeat bg-slate-900"
-        style={{ backgroundImage: "url('/landing/mission.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-slate-900/70" aria-hidden />
-        <div className="relative z-10 max-w-6xl mx-auto">
-          <h2 className="text-2xl font-bold text-white mb-8 text-center">Последние новости</h2>
-          <LatestBlogPosts />
-          <div className="text-center mt-8">
-            <Link
-              to="/blog"
-              className="inline-flex items-center gap-2 rounded-xl bg-imperial-gold px-6 py-3 font-bold text-slate-900 hover:bg-amber-400 transition-colors"
-            >
-              Читать блог
-              <span aria-hidden>→</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Секции — картинка во всю секцию, текст и кнопки поверх */}
-      {sections.map((section, index) => (
+        {/* Последние новости — вторая секция, 9 постов (3x3); фон mission.jpg */}
         <section
-          key={section.id}
-          className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-900"
+          className="relative py-16 px-4 border-t border-cyan-500/10 bg-contain bg-center bg-no-repeat bg-slate-900"
+          style={{ backgroundImage: "url('/landing/mission.jpg')" }}
         >
-          <img
-            src={section.image}
-            alt=""
-            className="absolute inset-0 w-full h-full object-contain"
-          />
-          <div
-            className={`absolute inset-0 ${index % 2 === 0
-              ? 'bg-gradient-to-r from-black/60 via-black/35 to-transparent'
-              : 'bg-gradient-to-l from-black/60 via-black/35 to-transparent'
-              }`}
-            aria-hidden
-          />
-          <div className="absolute bottom-[6px] right-2 h-[12px] w-[120px] bg-green-900" aria-hidden />
-          {section.id === 'early' && (
-            <div className="absolute left-0 right-0 top-1/2 z-10 flex justify-between items-center px-8 md:px-16 translate-y-[calc(-50%+255px)]">
-              <button
-                type="button"
-                onClick={() => setVideoModalType('login')}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-4 font-bold text-slate-900 shadow-[0_0_30px_rgba(255,213,0,0.45)] hover:scale-105 transition-transform"
+          <div className="absolute inset-0 bg-slate-900/70" aria-hidden />
+          <div className="relative z-10 max-w-6xl mx-auto">
+            <h2 className="text-2xl font-bold text-white mb-8 text-center">Последние новости</h2>
+            <LatestBlogPosts />
+            <div className="text-center mt-8">
+              <Link
+                to="/blog"
+                className="inline-flex items-center gap-2 rounded-xl bg-imperial-gold px-6 py-3 font-bold text-slate-900 hover:bg-amber-400 transition-colors"
               >
-                Вход в личный кабинет
+                Читать блог
                 <span aria-hidden>→</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setVideoModalType('register')}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-4 font-bold text-slate-900 shadow-[0_0_30px_rgba(255,213,0,0.45)] hover:scale-105 transition-transform"
-              >
-                Получить доступ
-                <span aria-hidden>→</span>
-              </button>
+              </Link>
             </div>
-          )}
-          <div
-            className={`relative z-10 px-8 py-16 ${section.id === 'office' ? 'max-w-[21rem] translate-y-[-310px] translate-x-[20px]' : section.id === 'core' ? 'max-w-2xl translate-y-[-20px]' : 'max-w-2xl translate-y-[255px]'} ${index % 2 === 0 ? 'mr-auto ml-8 md:ml-16 text-left' : 'ml-auto mr-8 md:mr-16 text-left'
-              }`}
-          >
-            <p className="text-xs uppercase tracking-[0.4em] text-cyan-300 mb-3 opacity-100">{`0${index + 1}`}</p>
-            {section.id !== 'time' && section.id !== 'office' && section.id !== 'analytics' && section.id !== 'ai-team' && section.id !== 'tech' && section.id !== 'visualization' && section.id !== 'early' && (
-              <h2
-                className={`font-bold mb-4 ${section.id === 'core'
-                  ? 'relative -top-[80px] text-base md:text-lg text-green-300'
-                  : 'text-2xl md:text-4xl text-white drop-shadow-[0_0_20px_rgba(0,247,255,0.5)]'
-                  }`}
-                style={section.id === 'core'
-                  ? { textShadow: '-12px 0 26px rgba(139,92,246,0.9), 12px 0 26px rgba(139,92,246,0.9), 0 0 16px rgba(139,92,246,0.85)' }
-                  : undefined}
-              >
-                {section.title}
-              </h2>
-            )}
-            {section.subtitle && (
-              <p className="text-lg md:text-xl text-cyan-100/90 mb-6">{section.subtitle}</p>
-            )}
-            {section.bullets && (
-              <ul
-                className={`space-y-3 ${section.id === 'office' ? 'text-base' : 'text-lg'} ${section.id === 'office' ? 'text-cyan-300' : section.id === 'visualization' ? 'text-blue-300' : section.id === 'core' ? 'text-blue-300' : 'text-cyan-50/95'}`}
-                style={section.id === 'office'
-                  ? { textShadow: '-10px 0 24px rgba(34,211,238,0.7), 10px 0 24px rgba(34,211,238,0.7), 0 0 12px rgba(34,211,238,0.4)' }
-                  : section.id === 'visualization'
-                    ? { textShadow: '-10px 0 24px rgba(59,130,246,0.7), 10px 0 24px rgba(59,130,246,0.7), 0 0 12px rgba(59,130,246,0.5)' }
-                    : section.id === 'core'
-                      ? { textShadow: '-10px 0 24px rgba(59,130,246,0.8), 10px 0 24px rgba(59,130,246,0.8), 0 0 14px rgba(59,130,246,0.6)', marginTop: 275 }
-                      : undefined}
-              >
-                {section.bullets.map((item) => (
-                  <li key={item} className="flex items-start gap-2">
-                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${section.id === 'office' ? 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)]' : section.id === 'visualization' ? 'bg-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.8)]' : 'bg-amber-400 shadow-[0_0_12px_rgba(255,204,0,0.8)]'}`} />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {section.cta && section.id !== 'early' && (
-              <div className="mt-8">
-                <Link
-                  to={section.cta.href}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-4 font-bold text-slate-900 shadow-[0_0_30px_rgba(255,213,0,0.45)] hover:scale-105 transition-transform"
-                >
-                  {section.cta.label}
-                  <span aria-hidden>→</span>
-                </Link>
-                {section.cta.note && (
-                  <p className="text-sm uppercase tracking-[0.2em] text-cyan-200 mt-4">{section.cta.note}</p>
-                )}
-              </div>
-            )}
           </div>
         </section>
-      ))}
 
-      {/* Footer */}
-      <footer className="relative py-12 px-4 bg-black/80 backdrop-blur-sm border-t border-cyan-500/10">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-6 text-sm text-cyan-100/70">
-          {FOOTER_LINKS.map((link) => (
-            <Link key={link.href} to={link.href} className="hover:text-amber-300 transition-colors">
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </footer>
+        {/* Секции — картинка во всю секцию, текст и кнопки поверх */}
+        {sections.map((section, index) => (
+          <section
+            key={section.id}
+            className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-900"
+          >
+            <img
+              src={section.image}
+              alt=""
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+            <div
+              className={`absolute inset-0 ${index % 2 === 0
+                ? 'bg-gradient-to-r from-black/60 via-black/35 to-transparent'
+                : 'bg-gradient-to-l from-black/60 via-black/35 to-transparent'
+                }`}
+              aria-hidden
+            />
+            <div className="absolute bottom-[6px] right-2 h-[12px] w-[120px] bg-green-900" aria-hidden />
+            {section.id === 'early' && (
+              <div className="absolute left-0 right-0 top-1/2 z-10 flex justify-between items-center px-8 md:px-16 translate-y-[calc(-50%+255px)]">
+                <button
+                  type="button"
+                  onClick={() => setVideoModalType('login')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-4 font-bold text-slate-900 shadow-[0_0_30px_rgba(255,213,0,0.45)] hover:scale-105 transition-transform"
+                >
+                  Вход в личный кабинет
+                  <span aria-hidden>→</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVideoModalType('register')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-4 font-bold text-slate-900 shadow-[0_0_30px_rgba(255,213,0,0.45)] hover:scale-105 transition-transform"
+                >
+                  Получить доступ
+                  <span aria-hidden>→</span>
+                </button>
+              </div>
+            )}
+            <div
+              className={`relative z-10 px-8 py-16 ${section.id === 'office' ? 'max-w-[21rem] translate-y-[-310px] translate-x-[20px]' : section.id === 'core' ? 'max-w-2xl translate-y-[-20px]' : 'max-w-2xl translate-y-[255px]'} ${index % 2 === 0 ? 'mr-auto ml-8 md:ml-16 text-left' : 'ml-auto mr-8 md:mr-16 text-left'
+                }`}
+            >
+              <p className="text-xs uppercase tracking-[0.4em] text-cyan-300 mb-3 opacity-100">{`0${index + 1}`}</p>
+              {section.id !== 'time' && section.id !== 'office' && section.id !== 'analytics' && section.id !== 'ai-team' && section.id !== 'tech' && section.id !== 'visualization' && section.id !== 'early' && (
+                <h2
+                  className={`font-bold mb-4 ${section.id === 'core'
+                    ? 'relative -top-[80px] text-base md:text-lg text-green-300'
+                    : 'text-2xl md:text-4xl text-white drop-shadow-[0_0_20px_rgba(0,247,255,0.5)]'
+                    }`}
+                  style={section.id === 'core'
+                    ? { textShadow: '-12px 0 26px rgba(139,92,246,0.9), 12px 0 26px rgba(139,92,246,0.9), 0 0 16px rgba(139,92,246,0.85)' }
+                    : undefined}
+                >
+                  {section.title}
+                </h2>
+              )}
+              {section.subtitle && (
+                <p className="text-lg md:text-xl text-cyan-100/90 mb-6">{section.subtitle}</p>
+              )}
+              {section.bullets && (
+                <ul
+                  className={`space-y-3 ${section.id === 'office' ? 'text-base' : 'text-lg'} ${section.id === 'office' ? 'text-cyan-300' : section.id === 'visualization' ? 'text-blue-300' : section.id === 'core' ? 'text-blue-300' : 'text-cyan-50/95'}`}
+                  style={section.id === 'office'
+                    ? { textShadow: '-10px 0 24px rgba(34,211,238,0.7), 10px 0 24px rgba(34,211,238,0.7), 0 0 12px rgba(34,211,238,0.4)' }
+                    : section.id === 'visualization'
+                      ? { textShadow: '-10px 0 24px rgba(59,130,246,0.7), 10px 0 24px rgba(59,130,246,0.7), 0 0 12px rgba(59,130,246,0.5)' }
+                      : section.id === 'core'
+                        ? { textShadow: '-10px 0 24px rgba(59,130,246,0.8), 10px 0 24px rgba(59,130,246,0.8), 0 0 14px rgba(59,130,246,0.6)', marginTop: 275 }
+                        : undefined}
+                >
+                  {section.bullets.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${section.id === 'office' ? 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)]' : section.id === 'visualization' ? 'bg-blue-400 shadow-[0_0_12px_rgba(59,130,246,0.8)]' : 'bg-amber-400 shadow-[0_0_12px_rgba(255,204,0,0.8)]'}`} />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {section.cta && section.id !== 'early' && (
+                <div className="mt-8">
+                  <Link
+                    to={section.cta.href}
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 px-6 py-4 font-bold text-slate-900 shadow-[0_0_30px_rgba(255,213,0,0.45)] hover:scale-105 transition-transform"
+                  >
+                    {section.cta.label}
+                    <span aria-hidden>→</span>
+                  </Link>
+                  {section.cta.note && (
+                    <p className="text-sm uppercase tracking-[0.2em] text-cyan-200 mt-4">{section.cta.note}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        ))}
+
+        {/* Footer */}
+        <footer className="relative py-12 px-4 bg-black/80 backdrop-blur-sm border-t border-cyan-500/10">
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-6 text-sm text-cyan-100/70">
+            {FOOTER_LINKS.map((link) => (
+              <Link key={link.href} to={link.href} className="hover:text-amber-300 transition-colors">
+                {link.label}
+              </Link>
+            ))}
+            <button
+              type="button"
+              onClick={openCookieConsentSettings}
+              className="hover:text-amber-300 transition-colors"
+            >
+              Настройки cookie
+            </button>
+          </div>
+        </footer>
       </div>
     </>
   );

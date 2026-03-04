@@ -60,7 +60,12 @@ interface GanttChartProps {
   projectId: number;
   onTaskUpdate?: (taskId: number, data: { start_date: string; end_date: string }) => void;
   onTaskClick?: (task: GanttTask) => void;
-  onDependencyCreate?: (predecessorId: number, successorId: number) => void;
+  onDependencyCreate?: (
+    predecessorId: number,
+    successorId: number,
+    type: 'FS' | 'SS' | 'FF' | 'SF',
+    lagDays: number
+  ) => void;
   onDependencyDelete?: (dependencyId: number) => void;
   isUpdating?: boolean;
 }
@@ -258,14 +263,26 @@ export default function GanttChart({
 
   const [depPredecessor, setDepPredecessor] = useState<number>(0);
   const [depSuccessor, setDepSuccessor] = useState<number>(0);
+  const [depType, setDepType] = useState<'FS' | 'SS' | 'FF' | 'SF'>('FS');
+  const [depLagDays, setDepLagDays] = useState<number>(0);
 
   const handleCreateDependency = useCallback(() => {
     if (depPredecessor && depSuccessor && depPredecessor !== depSuccessor && onDependencyCreate) {
-      onDependencyCreate(depPredecessor, depSuccessor);
+      onDependencyCreate(depPredecessor, depSuccessor, depType, depLagDays);
       setDepPredecessor(0);
       setDepSuccessor(0);
+      setDepType('FS');
+      setDepLagDays(0);
     }
-  }, [depPredecessor, depSuccessor, onDependencyCreate]);
+  }, [depLagDays, depPredecessor, depSuccessor, depType, onDependencyCreate]);
+
+  // Диапазон дат шкалы (нужно объявлять до раннего return, иначе нарушаются правила хуков)
+  const [dateRangeStart, setDateRangeStart] = useState<string | null>(null);
+  const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null);
+  const resetDateRange = useCallback(() => {
+    setDateRangeStart(null);
+    setDateRangeEnd(null);
+  }, []);
 
   if (flatTasks.length === 0) {
     return (
@@ -295,18 +312,9 @@ export default function GanttChart({
   const taskMinD = starts.length ? starts.reduce((a, b) => (a < b ? a : b)) : new Date();
   const taskMaxD = ends.length ? ends.reduce((a, b) => (a > b ? a : b)) : new Date();
 
-  // Задаваемый период шкалы (null = авто по задачам)
-  const [dateRangeStart, setDateRangeStart] = useState<string | null>(null);
-  const [dateRangeEnd, setDateRangeEnd] = useState<string | null>(null);
-
   const minD = dateRangeStart ? parseDateOnly(dateRangeStart) : taskMinD;
   const maxD = dateRangeEnd ? parseDateOnly(dateRangeEnd) : taskMaxD;
   const totalDays = Math.max(1, differenceInDays(maxD, minD) + 1);
-
-  const resetDateRange = useCallback(() => {
-    setDateRangeStart(null);
-    setDateRangeEnd(null);
-  }, []);
   const dayList = eachDayOfInterval({ start: minD, end: maxD });
 
   // Точки шкалы для вертикальных линий (границы недель/месяцев)
@@ -691,6 +699,7 @@ export default function GanttChart({
                     role="button"
                     tabIndex={0}
                     onMouseDown={(e) => handleBarMouseDown(e, task)}
+                    aria-label={`Перетащите для сдвига: ${task.name}`}
                     className={`h-full w-full rounded-md text-white flex items-center justify-between px-2 text-xs shadow-sm ${onTaskUpdate ? 'cursor-grab active:cursor-grabbing' : ''
                       } ${isDragging ? 'ring-2 ring-offset-1' : ''}`}
                     style={{
@@ -792,6 +801,7 @@ export default function GanttChart({
             <select
               value={depPredecessor}
               onChange={(e) => setDepPredecessor(Number(e.target.value))}
+              aria-label="Предшественник зависимости"
               className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg text-sm"
             >
               <option value={0}>— предшественник —</option>
@@ -805,6 +815,7 @@ export default function GanttChart({
             <select
               value={depSuccessor}
               onChange={(e) => setDepSuccessor(Number(e.target.value))}
+              aria-label="Преемник зависимости"
               className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg text-sm"
             >
               <option value={0}>— преемник —</option>
@@ -814,6 +825,30 @@ export default function GanttChart({
                 </option>
               ))}
             </select>
+            <select
+              value={depType}
+              onChange={(e) => setDepType(e.target.value as 'FS' | 'SS' | 'FF' | 'SF')}
+              aria-label="Тип зависимости"
+              className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg text-sm"
+              title="Тип зависимости"
+            >
+              <option value="FS">FS</option>
+              <option value="SS">SS</option>
+              <option value="FF">FF</option>
+              <option value="SF">SF</option>
+            </select>
+            <label className="flex items-center gap-1 text-sm text-slate-600 dark:text-slate-400">
+              Лаг
+              <input
+                type="number"
+                value={depLagDays}
+                onChange={(e) => setDepLagDays(Number(e.target.value || 0))}
+                aria-label="Лаг зависимости в днях"
+                className="w-16 px-2 py-1.5 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg text-sm"
+                title="Лаг (дней)"
+              />
+              дн.
+            </label>
             <button
               type="button"
               onClick={handleCreateDependency}

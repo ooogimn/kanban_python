@@ -20,6 +20,9 @@ import {
 } from '@xyflow/react';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { useMutation } from '@tanstack/react-query';
+import { mindmapsApi } from '../../api/mindmaps';
+import toast from 'react-hot-toast';
 import '@xyflow/react/dist/style.css';
 import CyberNode from './CyberNode';
 import CyberEdge from './CyberEdge';
@@ -99,6 +102,7 @@ const defaultNodeStyle = {
 };
 
 interface MindMapEditorProps {
+  id?: number;
   initialNodes: Node[];
   initialEdges: Edge[];
   onSave: (nodes: Node[], edges: Edge[]) => void;
@@ -109,12 +113,14 @@ interface MindMapEditorProps {
 
 /** Панель инструментов — должна рендериться внутри ReactFlow, чтобы useReactFlow() работал. */
 function FlowToolbar({
+  id,
   onSave,
   saveLoading,
   workitemId,
   theme,
   onThemeChange,
 }: {
+  id?: number;
   onSave: (nodes: Node[], edges: Edge[]) => void;
   saveLoading?: boolean;
   workitemId?: number;
@@ -204,6 +210,22 @@ function FlowToolbar({
       });
   }, [domNode]);
 
+  const exportToFileMutation = useMutation({
+    mutationFn: (mapId: number) => mindmapsApi.exportToFile(mapId),
+    onSuccess: () => {
+      toast.success('Карта экспортирована в файлы проекта');
+    },
+    onError: () => toast.error('Ошибка экспорта в файл'),
+  });
+
+  const handleExportToFile = useCallback(() => {
+    if (id) {
+      exportToFileMutation.mutate(id);
+    } else {
+      toast.error('Сначала сохраните карту');
+    }
+  }, [id, exportToFileMutation]);
+
   const isLight = theme === 'light';
   const panelClass = isLight
     ? 'bg-slate-100/95 border-slate-300 text-slate-800'
@@ -288,6 +310,16 @@ function FlowToolbar({
           {exporting === 'pdf' ? '…' : 'PDF'}
         </button>
 
+        <button
+          type="button"
+          onClick={handleExportToFile}
+          disabled={!id || exportToFileMutation.isPending}
+          className="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium disabled:opacity-50"
+          title="Сохранить в файлы проекта"
+        >
+          {exportToFileMutation.isPending ? '…' : 'В файлы проекта'}
+        </button>
+
         {workitemId && (
           <>
             <div className="w-px self-stretch bg-slate-400/50 mx-0.5" aria-hidden />
@@ -327,6 +359,7 @@ function MindMapControls({
 }
 
 function EditorInner({
+  id,
   initialNodes,
   initialEdges,
   onSave,
@@ -334,7 +367,7 @@ function EditorInner({
   workitemId,
 }: Omit<MindMapEditorProps, 'projectId'>) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const { getNodes, getEdges } = useReactFlow();
   const [theme, setTheme] = useState<MindMapTheme>('dark');
@@ -498,8 +531,13 @@ function EditorInner({
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        nodeTypes={{ default: CyberNode }}
-        edgeTypes={{ default: CyberEdge, straight: CyberEdge, smoothstep: CyberEdge, step: CyberEdge }}
+        nodeTypes={{ default: CyberNode as any }}
+        edgeTypes={{
+          default: CyberEdge as any,
+          straight: CyberEdge as any,
+          smoothstep: CyberEdge as any,
+          step: CyberEdge as any,
+        }}
         fitView
         colorMode={colorMode}
         className={`${flowClass} pr-64`}
@@ -508,6 +546,7 @@ function EditorInner({
         <MindMapControls containerRef={containerRef} className={controlsClass} />
         <NodeSettingsSidebar />
         <FlowToolbar
+          id={id}
           onSave={handleSave}
           saveLoading={saveLoading}
           workitemId={workitemId}
@@ -520,7 +559,7 @@ function EditorInner({
 }
 
 export default function MindMapEditor(props: MindMapEditorProps) {
-  const { initialNodes, initialEdges, workitemId, ...rest } = props;
+  const { id, initialNodes, initialEdges, workitemId, ...rest } = props;
   const nodesWithStyle = useMemo(
     () =>
       initialNodes.map((n) => {
@@ -538,6 +577,7 @@ export default function MindMapEditor(props: MindMapEditorProps) {
   return (
     <ReactFlowProvider>
       <EditorInner
+        id={id}
         initialNodes={nodesWithStyle}
         initialEdges={initialEdges}
         workitemId={workitemId}

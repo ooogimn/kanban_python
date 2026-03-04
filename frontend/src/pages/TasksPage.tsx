@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useInfiniteQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import { toPng, toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx-js-style';
 import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
 import { timetrackingApi } from '../api/timetracking';
@@ -9,6 +12,9 @@ import type { KanbanItem } from '../types';
 import TaskModal from '../components/TaskModal';
 import { TaskDetailModal } from './KanbanPage';
 import toast from 'react-hot-toast';
+import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
+
+type ViewMode = 'list' | 'grid';
 
 function formatTimer(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -183,6 +189,11 @@ export default function TasksPage() {
     const a = searchParams.get('assigned_to');
     return a ? Number(a) : '';
   });
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [exportLoading, setExportLoading] = useState<'jpg' | 'pdf' | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const taskListRef = useRef<HTMLDivElement>(null);
+  const tasksFullscreenRef = useRef<HTMLDivElement>(null);
 
   const { data: currentWorkspace } = useQuery({
     queryKey: ['workspace-current'],
@@ -295,19 +306,155 @@ export default function TasksPage() {
     }, { replace: true });
   };
 
+  const exportOptions = { pixelRatio: 2, cacheBust: true };
+
+  const handleExportJpg = useCallback(() => {
+    const el = taskListRef.current;
+    if (!el) return;
+    setExportLoading('jpg');
+    toJpeg(el, { ...exportOptions, quality: 0.95 })
+      .then((dataUrl) => {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `tasks-${Date.now()}.jpg`;
+        a.click();
+        toast.success('Сохранено в JPG');
+      })
+      .catch((err) => {
+        console.error('Export JPG failed', err);
+        toast.error('Не удалось сохранить JPG');
+      })
+      .finally(() => setExportLoading(null));
+  }, []);
+
+  const handleExportPdf = useCallback(() => {
+    const el = taskListRef.current;
+    if (!el) return;
+    setExportLoading('pdf');
+    toPng(el, exportOptions)
+      .then((dataUrl) => {
+        const img = new Image();
+        img.onload = () => {
+          const pdf = new jsPDF({
+            orientation: img.width > img.height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [img.width, img.height],
+          });
+          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+          pdf.save(`tasks-${Date.now()}.pdf`);
+          toast.success('Сохранено в PDF');
+        };
+        img.onerror = () => setExportLoading(null);
+        img.src = dataUrl;
+      })
+      .catch((err) => {
+        console.error('Export PDF failed', err);
+        toast.error('Не удалось сохранить PDF');
+      })
+      .finally(() => setExportLoading(null));
+  }, []);
+
+  const handleFullscreen = useCallback(() => {
+    const el = tasksFullscreenRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => toast.error('Полный экран недоступен'));
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false));
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  const handleExportExcel = useCallback(() => {
+    const rows: (string | number)[][] = [
+      ['Название', 'Статус', 'Приоритет', 'Срок', 'Проект'],
+      ...(tasks ?? []).map((t) => [
+        t.title ?? '',
+        STATUS_LABELS[t.status] ?? t.status,
+        PRIORITY_LABELS[t.priority] ?? t.priority,
+        t.due_date ? new Date(t.due_date).toLocaleDateString('ru-RU') : '',
+        'project_name' in t ? (t as WorkItem & { project_name?: string }).project_name ?? '' : '',
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Задачи');
+    XLSX.writeFile(wb, `tasks-${Date.now()}.xlsx`);
+    toast.success('Сохранено в Excel');
+  }, [tasks]);
+
   return (
-    <div className="space-y-6">
+    <div ref={tasksFullscreenRef} className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Задачи</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">Управление задачами</p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-        >
-          + Новая задача
-        </button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => setModalOpen(true)}
+            title="Новая задача"
+            className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
+          >
+            +
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={handleExportJpg}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            JPG
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs"
+          >
+            Excel
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            title="Сетка"
+            className={`p-1.5 rounded-md border ${viewMode === 'grid' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            title="Список"
+            className={`p-1.5 rounded-md border ${viewMode === 'list' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={handleFullscreen}
+            className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            title={isFullscreen ? 'Свернуть' : 'Во весь экран'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+        </div>
       </div>
 
       {/* Filters — компактные, ширина +30% по оси X */}
@@ -387,7 +534,7 @@ export default function TasksPage() {
       </div>
 
       {/* Task list */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700">
+      <div ref={taskListRef} className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700">
         {isLoading ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">Загрузка...</div>
         ) : isError ? (
@@ -396,6 +543,43 @@ export default function TasksPage() {
           </div>
         ) : (tasks?.length ?? 0) === 0 ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400">Нет задач</div>
+        ) : viewMode === 'grid' ? (
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {tasks.map((task) => (
+              <div
+                key={task.id}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 p-4 border-l-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+                style={{
+                  borderLeftColor: (task as WorkItem).color || '#fbbf24',
+                  boxShadow: `inset 4px 0 12px ${((task as WorkItem).color || '#fbbf24')}50`,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleOpenTask(task)}
+                  className="font-medium text-slate-900 dark:text-slate-100 text-left hover:underline focus:outline-none focus:underline block w-full mb-2 line-clamp-2"
+                >
+                  {task.title}
+                </button>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                  {STATUS_LABELS[task.status] ?? task.status} · {PRIORITY_LABELS[task.priority] ?? task.priority}
+                  {'project_name' in task && (task as WorkItem & { project_name?: string }).project_name && (
+                    <> · {(task as WorkItem & { project_name?: string }).project_name}</>
+                  )}
+                </p>
+                <TaskRowTimer
+                  task={task as WorkItem}
+                  queryKey={queryKey}
+                  onComplete={() => { }}
+                />
+                {task.due_date && (
+                  <span className="text-xs text-gray-500 block mt-2">
+                    {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
           <ul className="divide-y divide-slate-200 dark:divide-slate-600">
             {tasks.map((task) => (

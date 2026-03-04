@@ -48,4 +48,9 @@ export const mindmapsApi = {
   delete: async (id: number): Promise<void> => {
     await api.delete(`/mindmaps/maps/${id}/`);
   },
+
+  exportToFile: async (id: number): Promise<{ file_id: number; file_url: string }> => {
+    const response = await api.post(`/mindmaps/maps/${id}/export_to_file/`);
+    return response.data;
+  },
 };

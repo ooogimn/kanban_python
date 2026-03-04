@@ -5,6 +5,8 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { blogApi, BlogPostListItem, type BlogCategory, type BlogTag } from '../api/blog';
 import { Search } from 'lucide-react';
+import { SEOMeta } from '../components/SEOMeta';
+import { JsonLd } from '../components/JsonLd';
 
 /** URL медиа: при другом origin подменяем на текущий, чтобы запрос шёл через прокси. */
 function mediaUrl(url: string | null | undefined): string | null {
@@ -103,8 +105,8 @@ export default function BlogPage() {
   const err = isError && error ? (error as { response?: { data?: { detail?: string }; status?: number }; message?: string }) : null;
   const errorMessage = err
     ? (typeof err.response?.data?.detail === 'string' ? err.response.data.detail : null) ||
-      (typeof (err as Error).message === 'string' ? (err as Error).message : '') ||
-      'Не удалось загрузить статьи.'
+    (typeof (err as Error).message === 'string' ? (err as Error).message : '') ||
+    'Не удалось загрузить статьи.'
     : '';
 
   const toggleTag = (slug: string) => {
@@ -113,8 +115,27 @@ export default function BlogPage() {
     );
   };
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "Блог Office Suite 360",
+    "description": "Статьи, новости, кейсы и полезные материалы об управлении проектами и бизнесом.",
+    "url": "https://lukinterlab.ru/blog",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Office Suite 360",
+      "url": "https://lukinterlab.ru"
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
+      <SEOMeta
+        title="Блог о бизнесе и проектах"
+        description="Читайте полезные статьи, кейсы и новости об управлении проектами, временем и бизнесом от Office Suite 360."
+        url="/blog"
+      />
+      <JsonLd data={jsonLd} />
       <h1 className="text-3xl font-bold text-white mb-6">Блог</h1>
 
       <div className="mb-8 space-y-4">
@@ -150,11 +171,10 @@ export default function BlogPage() {
                 key={tag.id}
                 type="button"
                 onClick={() => toggleTag(tag.slug)}
-                className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                  selectedTagSlugs.includes(tag.slug)
-                    ? 'bg-imperial-gold text-slate-900'
-                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                }`}
+                className={`px-3 py-1 rounded-full text-sm transition-colors ${selectedTagSlugs.includes(tag.slug)
+                  ? 'bg-imperial-gold text-slate-900'
+                  : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                  }`}
               >
                 {tag.name}
               </button>

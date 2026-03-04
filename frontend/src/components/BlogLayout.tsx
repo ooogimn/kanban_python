@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useSidebarStore } from '../store/sidebarStore';
 import { useThemeStore, applyThemeToDom } from '../store/themeStore';
+import { LEGAL_LINKS } from '../constants/legalLinks';
+import { openCookieConsentSettings } from '../lib/cookieConsent';
 
 const publicNavItems = [
   { name: 'Блог', href: '/blog', icon: '📰' },
@@ -120,11 +122,19 @@ export default function BlogLayout() {
           <div className="relative z-10 flex-1 flex flex-col min-h-0 p-4 sm:p-6 lg:p-10">
             <Outlet />
             <footer className="mt-auto pt-6 pb-2 border-t border-white/10 text-center text-xs text-imperial-muted flex flex-wrap items-center justify-center gap-3">
-            <Link to="/terms" className="hover:text-imperial-gold transition-colors">Пользовательское соглашение</Link>
-            <Link to="/privacy" className="hover:text-imperial-gold transition-colors">Политика конфиденциальности</Link>
-            <Link to="/offer" className="hover:text-imperial-gold transition-colors">Оферта</Link>
-            <Link to="/legal/contacts" className="hover:text-imperial-gold transition-colors">Контакты</Link>
-          </footer>
+              {LEGAL_LINKS.map((link) => (
+                <Link key={link.href} to={link.href} className="hover:text-imperial-gold transition-colors">
+                  {link.label}
+                </Link>
+              ))}
+              <button
+                type="button"
+                onClick={openCookieConsentSettings}
+                className="hover:text-imperial-gold transition-colors"
+              >
+                Настройки cookie
+              </button>
+            </footer>
           </div>
         </div>
       </main>

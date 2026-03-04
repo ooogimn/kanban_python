@@ -17,7 +17,6 @@ import { FileList, WikiTree } from '../components/documents';
 import { ProjectBudgetWidget } from '../components/widgets';
 import { ProjectHeader } from '../components/project';
 import ProjectModal from '../components/ProjectModal';
-import ProjectChatPanel from '../components/ProjectChatPanel';
 import ProjectActivityLog from '../components/ProjectActivityLog';
 import ProjectParticipants from '../components/ProjectParticipants';
 import TaskModal from '../components/TaskModal';
@@ -84,7 +83,7 @@ export default function ProjectDetailPage() {
   const projectId = id ? Number(id) : 0;
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
-  const validTabs = ['overview', 'kanban', 'list', 'gantt', 'calendar', 'files', 'wiki', 'activity', 'members'] as const;
+  const validTabs = ['overview', 'kanban', 'list', 'gantt', 'calendar', 'files', 'wiki', 'maps', 'activity', 'members'] as const;
   type TabId = (typeof validTabs)[number];
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     return validTabs.includes((tabFromUrl || '') as TabId) ? (tabFromUrl as TabId) : 'overview';
@@ -287,7 +286,6 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <ProjectChatPanel projectId={projectId} />
 
       <ProjectHeader
         project={project}
@@ -315,7 +313,7 @@ export default function ProjectDetailPage() {
       {/* Tabs — Единый центр проекта */}
       <div className="border-b border-gray-200 dark:border-slate-700 overflow-x-auto">
         <nav className="flex space-x-2 sm:space-x-4 min-w-0 shrink-0 flex-wrap gap-y-1">
-          {(['overview', 'kanban', 'list', 'gantt', 'calendar', 'files', 'wiki', 'activity', 'members'] as const).map((tab) => (
+          {(['overview', 'kanban', 'list', 'gantt', 'calendar', 'files', 'wiki', 'maps', 'activity', 'members'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setTab(tab)}

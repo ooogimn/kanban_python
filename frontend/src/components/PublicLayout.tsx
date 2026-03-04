@@ -1,7 +1,8 @@
 import { Outlet, Link } from 'react-router-dom';
+import PublicFooter from './PublicFooter';
 
 /**
- * Публичный layout для лендинга и юр-страниц: хедер без сайдбара приложения.
+ * Публичный layout для лендинга и юр-страниц: хедер без сайдбара приложения + полный футер.
  */
 export default function PublicLayout() {
   return (
@@ -10,7 +11,7 @@ export default function PublicLayout() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/landing" className="flex items-center gap-2 text-white font-semibold">
             <img src="/OS_LOGO.png" alt="" className="w-8 h-8 rounded-lg object-contain bg-white/10" />
-            <span>OS LukintrLab</span>
+            <span>Office Suite 360</span>
           </Link>
           <nav className="flex items-center gap-4">
             <Link to="/blog" className="text-imperial-muted hover:text-white text-sm font-medium transition-colors">
@@ -19,6 +20,9 @@ export default function PublicLayout() {
             <a href="/landing#pricing" className="text-imperial-muted hover:text-white text-sm font-medium transition-colors">
               Тарифы
             </a>
+            <Link to="/legal/contacts" className="text-imperial-muted hover:text-white text-sm font-medium transition-colors">
+              Контакты
+            </Link>
             <Link to="/login" className="text-imperial-muted hover:text-white text-sm font-medium transition-colors">
               Войти
             </Link>
@@ -34,6 +38,7 @@ export default function PublicLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+      <PublicFooter />
     </div>
   );
 }

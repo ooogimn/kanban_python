@@ -176,6 +176,7 @@ export default function MindMapEditorPage() {
       </div>
       <div className="flex-1 min-h-0">
         <MindMapEditor
+          id={isNew ? undefined : Number(id)}
           initialNodes={initialNodes}
           initialEdges={initialEdges}
           onSave={handleSave}

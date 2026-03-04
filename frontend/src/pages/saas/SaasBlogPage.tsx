@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { Pencil, Trash2, Plus, LayoutGrid, List } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { SEOMeta } from '../../components/SEOMeta';
 
 Quill.register('modules/resize', QuillResizeImage);
 
@@ -57,6 +58,12 @@ function PostModal({
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+
+  // SEO fields
+  const [metaTitle, setMetaTitle] = useState(post?.meta_title ?? '');
+  const [metaDescription, setMetaDescription] = useState(post?.meta_description ?? '');
+  const [canonicalUrl, setCanonicalUrl] = useState(post?.canonical_url ?? '');
+  const [ogImage, setOgImage] = useState(post?.og_image ?? '');
   const [mainMediaAutoplay, setMainMediaAutoplay] = useState(post?.main_media_autoplay ?? true);
   const [categoryId, setCategoryId] = useState<number | ''>(post?.category ?? '');
   const [tagIds, setTagIds] = useState<number[]>(post?.tag_ids ?? []);
@@ -160,6 +167,13 @@ function PostModal({
       if (publishedAt) fd.append('published_at', publishedAt);
       if (imageFile) fd.append('image', imageFile);
       if (videoFile) fd.append('video', videoFile);
+
+      // SEO
+      if (metaTitle.trim()) fd.append('meta_title', metaTitle.trim());
+      if (metaDescription.trim()) fd.append('meta_description', metaDescription.trim());
+      if (canonicalUrl.trim()) fd.append('canonical_url', canonicalUrl.trim());
+      if (ogImage.trim()) fd.append('og_image', ogImage.trim());
+
       if (post) updateMutation.mutate(fd);
       else createMutation.mutate(fd);
     } else {
@@ -172,6 +186,10 @@ function PostModal({
         main_media_autoplay: mainMediaAutoplay,
         category: catId ?? undefined,
         tag_ids: tagIds,
+        meta_title: metaTitle.trim(),
+        meta_description: metaDescription.trim(),
+        canonical_url: canonicalUrl.trim(),
+        og_image: ogImage.trim(),
       };
       if (post) (payload as { slug?: string }).slug = slug.trim();
       if (post) updateMutation.mutate(payload);
@@ -343,7 +361,52 @@ function PostModal({
               </label>
             </div>
           </div>
-          <div className="flex flex-wrap gap-4">
+          <div className="pt-4 border-t border-slate-700">
+            <h3 className="text-lg font-bold text-white mb-3">SEO Настройки</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Meta Title</label>
+                <input
+                  type="text"
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                  placeholder="Оптимизированный заголовок (по умолчанию берется из Заголовка)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Meta Description</label>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                  placeholder="Краткое описание для поисковиков (по умолчанию берется из Краткого описания)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Canonical URL</label>
+                <input
+                  type="text"
+                  value={canonicalUrl}
+                  onChange={(e) => setCanonicalUrl(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                  placeholder="https://example.com/original-article"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">OG:Image URL</label>
+                <input
+                  type="text"
+                  value={ogImage}
+                  onChange={(e) => setOgImage(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                  placeholder="URL картинки для соцсетей (по умолчанию главное изображение)"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-700">
             <label className="flex items-center gap-2 text-slate-300">
               <input
                 type="checkbox"
@@ -449,9 +512,8 @@ function PostCard({
           )}
         </p>
         <span
-          className={`inline-flex w-fit px-2 py-0.5 rounded text-xs font-medium ${
-            post.is_published ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-500'
-          }`}
+          className={`inline-flex w-fit px-2 py-0.5 rounded text-xs font-medium ${post.is_published ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-500'
+            }`}
         >
           {post.is_published ? 'Опубликовано' : 'Черновик'}
         </span>
@@ -798,6 +860,11 @@ export default function SaasBlogPage() {
 
   return (
     <div className="space-y-6">
+      <SEOMeta
+        title="Блог"
+        description="Статьи, новости, кейсы и полезные материалы от команды Office Suite 360"
+        url="/blog"
+      />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-white">Блог</h1>
         <div className="flex items-center gap-2">
@@ -947,7 +1014,7 @@ export default function SaasBlogPage() {
         <PostModal
           post={modalPost === 'create' ? null : modalPost}
           onClose={() => setModalPost(null)}
-          onSuccess={() => {}}
+          onSuccess={() => { }}
         />
       )}
     </div>

@@ -251,12 +251,13 @@ export default function CreateContactModal({
                 <select
                   value={form.group}
                   onChange={(e) => setForm((f) => ({ ...f, group: e.target.value }))}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-imperial-gold/50 focus:border-imperial-gold"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-imperial-gold/50 focus:border-imperial-gold"
+                  style={{ colorScheme: 'light' }}
                 >
-                  <option value="staff">Staff</option>
-                  <option value="employee">Employee</option>
-                  <option value="client">Client</option>
-                  <option value="contractor">Contractor</option>
+                  <option value="staff" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>Сотрудник</option>
+                  <option value="employee" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>Работник</option>
+                  <option value="client" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>Клиент</option>
+                  <option value="contractor" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>Подрядчик</option>
                 </select>
               </div>
               <div>
@@ -273,11 +274,12 @@ export default function CreateContactModal({
                       guarantor: e.target.value ? Number(e.target.value) : null,
                     }))
                   }
-                  className="w-full rounded-lg border border-white/10 bg-white/5 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-imperial-gold/50 focus:border-imperial-gold"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-imperial-gold/50 focus:border-imperial-gold"
+                  style={{ colorScheme: 'light' }}
                 >
-                  <option value="">— Не выбран —</option>
+                  <option value="" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>— Не выбран —</option>
                   {guarantorOptions.map((m: { id: number; user?: { id: number; first_name?: string; last_name?: string; username?: string } }) => (
-                    <option key={m.id} value={m.user!.id}>
+                    <option key={m.id} value={m.user!.id} style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>
                       {[m.user!.first_name, m.user!.last_name].filter(Boolean).join(' ') ||
                         m.user!.username ||
                         `User ${m.user!.id}`}
@@ -320,11 +322,12 @@ export default function CreateContactModal({
                 <select
                   value={form.currency}
                   onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 text-slate-100 px-3 py-2 focus:ring-2 focus:ring-imperial-gold/50 focus:border-imperial-gold"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-imperial-gold/50 focus:border-imperial-gold"
+                  style={{ colorScheme: 'light' }}
                 >
-                  <option value="RUB">RUB</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
+                  <option value="RUB" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>RUB</option>
+                  <option value="USD" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>USD</option>
+                  <option value="EUR" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>EUR</option>
                 </select>
               </div>
             </div>

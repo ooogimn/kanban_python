@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toPng, toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx-js-style';
+import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import { calendarApi, type CalendarFeedItem } from '../api/calendar';
 import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
@@ -46,6 +50,9 @@ export default function CalendarPage() {
     const n = parseInt(projectFromUrl, 10);
     return Number.isNaN(n) ? '' : n;
   });
+  const [exportLoading, setExportLoading] = useState<'jpg' | 'pdf' | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const calendarPageRef = useRef<HTMLDivElement>(null);
 
   // Синхронизация фильтра с URL (можно делиться ссылкой с применённым фильтром)
   useEffect(() => {
@@ -228,6 +235,83 @@ export default function CalendarPage() {
     if (window.confirm('Удалить событие?')) deleteMutation.mutate(id);
   };
 
+  const exportOptions = { pixelRatio: 2, cacheBust: true };
+  const handleExportJpg = useCallback(() => {
+    const el = calendarPageRef.current;
+    if (!el) return;
+    setExportLoading('jpg');
+    toJpeg(el, { ...exportOptions, quality: 0.95 })
+      .then((dataUrl) => {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `calendar-${Date.now()}.jpg`;
+        a.click();
+        toast.success('Сохранено в JPG');
+      })
+      .catch((err) => {
+        console.error('Export JPG failed', err);
+        toast.error('Не удалось сохранить JPG');
+      })
+      .finally(() => setExportLoading(null));
+  }, []);
+  const handleExportPdf = useCallback(() => {
+    const el = calendarPageRef.current;
+    if (!el) return;
+    setExportLoading('pdf');
+    toPng(el, exportOptions)
+      .then((dataUrl) => {
+        const img = new Image();
+        img.onload = () => {
+          const pdf = new jsPDF({
+            orientation: img.width > img.height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [img.width, img.height],
+          });
+          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+          pdf.save(`calendar-${Date.now()}.pdf`);
+          toast.success('Сохранено в PDF');
+        };
+        img.onerror = () => setExportLoading(null);
+        img.src = dataUrl;
+      })
+      .catch((err) => {
+        console.error('Export PDF failed', err);
+        toast.error('Не удалось сохранить PDF');
+      })
+      .finally(() => setExportLoading(null));
+  }, []);
+  const handleExportExcel = useCallback(() => {
+    const list = feedItems ?? [];
+    const rows: (string | number)[][] = [
+      ['Событие', 'Начало', 'Окончание'],
+      ...list.map((item: CalendarFeedItem) => [
+        item.title ?? '',
+        item.start ?? '',
+        item.end ?? '',
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 40 }, { wch: 22 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Календарь');
+    XLSX.writeFile(wb, `calendar-${Date.now()}.xlsx`);
+    toast.success('Сохранено в Excel');
+  }, [feedItems]);
+  const handleFullscreen = useCallback(() => {
+    const el = calendarPageRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => toast.error('Полный экран недоступен'));
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false));
+    }
+  }, []);
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   if (isLoading) {
@@ -239,18 +323,71 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div ref={calendarPageRef} className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Календарь</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">События и расписание. Клик по ячейке — создать, по событию — редактировать.</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Календарь</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">События и расписание. Клик по ячейке — создать, по событию — редактировать.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Проект:</label>
+        <div className="flex flex-nowrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => { setSelectedEvent(null); setSlotStart(undefined); setSlotEnd(undefined); setModalOpen(true); }}
+            className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
+            title="Новое событие"
+          >
+            +
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={handleExportJpg}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            JPG
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={!!exportLoading}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs"
+          >
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs"
+          >
+            Excel
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" className="p-1.5 rounded-md border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 cursor-default" title="Сетка" aria-hidden>
+            <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" className="p-1.5 rounded-md border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 cursor-default" title="Список" aria-hidden>
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button
+            type="button"
+            onClick={handleFullscreen}
+            className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+            title={isFullscreen ? 'Свернуть' : 'Во весь экран'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700 p-2 flex flex-wrap gap-2 items-end">
+        <div className="min-w-0 flex-1 sm:flex-initial">
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Проект</label>
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilterAndUrl(e.target.value ? Number(e.target.value) : '')}
-            className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm w-full sm:w-48 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+            className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[10.2rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           >
             <option value="">Все события</option>
             {projects?.results?.map((p) => (

@@ -65,12 +65,14 @@ export const ganttApi = {
   createDependency: async (
     predecessorId: number,
     successorId: number,
-    type: 'FS' | 'SS' | 'FF' | 'SF' = 'FS'
+    type: 'FS' | 'SS' | 'FF' | 'SF' = 'FS',
+    lagDays = 0
   ): Promise<GanttDependency> => {
     const response = await api.post('/gantt/dependencies/', {
       predecessor: predecessorId,
       successor: successorId,
       type,
+      lag_days: lagDays,
     });
     return response.data;
   },

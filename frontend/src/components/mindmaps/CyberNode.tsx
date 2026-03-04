@@ -9,7 +9,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import { ChevronDown, ChevronRight, Trash2, Move } from 'lucide-react';
+import { Trash2, Move } from 'lucide-react';
 import {
   DEFAULT_LABEL_COLOR,
   DEFAULT_LABEL_FONT_SIZE,
@@ -54,7 +54,9 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
   /** При перетаскивании двигать и дочерние узлы (ветку). По умолчанию true. */
   const dragWithChildren = data?.dragWithChildren !== false;
 
-  const hasChildren = edges.some((e) => String(e.source) === String(id));
+  const childEdges = edges.filter((e) => String(e.source) === String(id));
+  const hasChildren = childEdges.length > 0;
+  const childrenCount = childEdges.length;
   const labelWrapRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLTextAreaElement>(null);
 
@@ -150,27 +152,7 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
         position={Position.Top}
         className="nodrag nopan flex flex-col gap-px bg-slate-800 p-0.5 rounded-sm border border-slate-600 min-w-[50px]"
       >
-        <div className="flex flex-col gap-px w-full">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); if (hasChildren) toggleCollapsed(); }}
-            onPointerDown={(e) => e.stopPropagation()}
-            disabled={!hasChildren}
-            className={`nodrag nopan w-full px-0.5 py-px text-[8px] rounded border inline-flex items-center justify-center gap-px leading-tight ${hasChildren
-                ? collapsed
-                  ? 'bg-cyan-600 border-cyan-500 text-white hover:bg-cyan-500 cursor-pointer'
-                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 cursor-pointer'
-                : 'bg-slate-700/50 border-slate-600 text-slate-500 cursor-not-allowed'
-              }`}
-            title={hasChildren ? (collapsed ? 'Развернуть дочерние узлы' : 'Свернуть дочерние узлы') : 'Нет дочерних узлов'}
-          >
-            <span className="pointer-events-none inline-flex shrink-0">
-              {collapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
-            </span>
-            {hasChildren ? (collapsed ? 'Развернуть' : 'Свернуть') : 'Нет дочерних'}
-          </button>
-        </div>
-        <div className="w-full border-t border-slate-600 pt-px mt-px">
+        <div className="w-full border-slate-600 pt-px">
           <button
             type="button"
             onClick={(e) => {
@@ -235,6 +217,17 @@ export default function CyberNode({ id, data, selected, width: nodeWidth, height
           minHeight: 44,
         }}
       >
+        {hasChildren && (
+          <button
+            type="button"
+            className="nodrag nopan absolute -bottom-1.5 -right-1.5 z-20 flex h-5 min-w-5 cursor-pointer items-center justify-center rounded-full border-2 border-slate-700 bg-cyan-500 px-1 text-[10px] font-bold text-white shadow-md hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-1 focus:ring-offset-slate-800"
+            title={collapsed ? `Развернуть дочерние (${childrenCount})` : `Свернуть дочерние (${childrenCount})`}
+            onClick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            {childrenCount > 99 ? '99+' : childrenCount}
+          </button>
+        )}
         <Handle type="target" position={Position.Top} className={handleClass} />
         <div
           className="absolute inset-0 flex flex-col"

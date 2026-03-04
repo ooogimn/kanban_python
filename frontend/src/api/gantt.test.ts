@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ganttApi } from './gantt';
 
-const mockApi = {
-  get: vi.fn(),
-  patch: vi.fn(),
-  post: vi.fn(),
-  delete: vi.fn(),
-};
+const { mockApi } = vi.hoisted(() => ({
+  mockApi: {
+    get: vi.fn(),
+    patch: vi.fn(),
+    post: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
 
 vi.mock('./client', () => ({ default: mockApi }));
 
@@ -40,7 +42,7 @@ describe('ganttApi', () => {
 
       const result = await ganttApi.getProjectTasks(projectId);
 
-      expect(mockApi.get).toHaveBeenCalledWith(`/gantt/projects/${projectId}/tasks/`);
+      expect(mockApi.get).toHaveBeenCalledWith(`/gantt/projects/${projectId}/tasks/`, { params: {} });
       expect(result).toEqual(data);
     });
   });
@@ -56,7 +58,7 @@ describe('ganttApi', () => {
 
       const result = await ganttApi.getGanttData(2);
 
-      expect(mockApi.get).toHaveBeenCalledWith('/gantt/', { params: { project_id: 2 } });
+      expect(mockApi.get).toHaveBeenCalledWith('/gantt/', { params: { project_id: '2' } });
       expect(result.data).toHaveLength(1);
       expect(result.links).toHaveLength(1);
     });
@@ -88,6 +90,7 @@ describe('ganttApi', () => {
         predecessor: 10,
         successor: 20,
         type: 'FS',
+        lag_days: 0,
       });
       expect(result.id).toBe(1);
       expect(result.predecessor).toBe(10);
@@ -101,6 +104,7 @@ describe('ganttApi', () => {
         predecessor: 1,
         successor: 2,
         type: 'SS',
+        lag_days: 0,
       });
     });
   });

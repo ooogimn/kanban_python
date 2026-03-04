@@ -1,5 +1,9 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback, type CSSProperties } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toPng, toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx-js-style';
+import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { financeApi, type Wallet, type Category, type Transaction, type FinanceAnalyticsSummary, type WalletType } from '../api/finance';
 import { todoApi } from '../api/todo';
@@ -121,6 +125,10 @@ export default function FinancePage() {
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [exportLoading, setExportLoading] = useState<'jpg' | 'pdf' | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
@@ -326,69 +334,160 @@ export default function FinancePage() {
     receiptUploadMutation.mutate({ id, file });
   };
 
-  return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-sm uppercase tracking-wide text-imperial-muted">Cyber-Imperial Finance</p>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-imperial-text">Финансовый центр</h1>
-        </div>
-        <div className="hidden md:flex gap-2">
-          <button
-            type="button"
-            onClick={() => setTransactionModalMode('expense')}
-            className="px-4 py-2 rounded-xl bg-imperial-gold text-black font-semibold hover:bg-amber-400 transition"
-          >
-            + Новая операция
-          </button>
-          <button
-            type="button"
-            onClick={() => setWalletModalOpen(true)}
-            className="px-4 py-2 rounded-xl border border-white/10 text-imperial-text hover:bg-white/5 transition"
-          >
-            + Кошелёк
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryManagerOpen(true)}
-            className="px-4 py-2 rounded-xl border border-white/10 text-imperial-text hover:bg-white/5 transition flex items-center gap-2"
-          >
-            ⚙️ Настройки
-          </button>
-        </div>
-        <div className="flex md:hidden gap-2">
-          <button
-            type="button"
-            onClick={() => setWalletModalOpen(true)}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-white/10 text-imperial-text flex items-center justify-center"
-            aria-label="Кошелёк"
-          >
-            💳
-          </button>
-          <button
-            type="button"
-            onClick={() => setCategoryManagerOpen(true)}
-            className="min-h-[44px] min-w-[44px] p-2 rounded-xl border border-white/10 text-imperial-text flex items-center justify-center"
-            aria-label="Настройки"
-          >
-            ⚙️
-          </button>
-        </div>
-      </header>
+  const exportOptions = { pixelRatio: 2, cacheBust: true };
+  const handleExportJpg = useCallback(() => {
+    if (!pageRef.current) return;
+    setExportLoading('jpg');
+    toJpeg(pageRef.current, { ...exportOptions, quality: 0.95 })
+      .then((dataUrl) => {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `finance-${Date.now()}.jpg`;
+        a.click();
+        toast.success('Сохранено в JPG');
+      })
+      .catch(() => toast.error('Не удалось сохранить JPG'))
+      .finally(() => setExportLoading(null));
+  }, []);
+  const handleExportPdf = useCallback(() => {
+    if (!pageRef.current) return;
+    setExportLoading('pdf');
+    toPng(pageRef.current, exportOptions)
+      .then((dataUrl) => {
+        const img = new Image();
+        img.onload = () => {
+          const pdf = new jsPDF({
+            orientation: img.width > img.height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [img.width, img.height],
+          });
+          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+          pdf.save(`finance-${Date.now()}.pdf`);
+          toast.success('Сохранено в PDF');
+        };
+        img.src = dataUrl;
+      })
+      .catch(() => toast.error('Не удалось сохранить PDF'))
+      .finally(() => setExportLoading(null));
+  }, []);
+  const handleExportExcel = useCallback(() => {
+    if (activeTab === 'wallets') {
+      const rows: (string | number)[][] = [['Название', 'Тип', 'Валюта', 'Баланс']];
+      wallets.forEach((w) => rows.push([w.name ?? '', w.type ?? '', w.currency ?? '', Number(w.balance ?? 0)]));
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 6 }, { wch: 14 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Кошельки');
+      XLSX.writeFile(wb, `finance-wallets-${Date.now()}.xlsx`);
+    } else if (activeTab === 'transactions') {
+      const rows: (string | number)[][] = [['Дата', 'Тип', 'Описание', 'Сумма', 'Валюта', 'Категория']];
+      transactions.forEach((tx) =>
+        rows.push([
+          tx.created_at ? new Date(tx.created_at).toLocaleString('ru-RU') : '',
+          tx.type ?? '',
+          tx.description ?? '',
+          Number(tx.amount ?? 0),
+          tx.currency ?? '',
+          tx.category?.name ?? '',
+        ])
+      );
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 16 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Операции');
+      XLSX.writeFile(wb, `finance-transactions-${Date.now()}.xlsx`);
+    } else {
+      const rows: (string | number)[][] = [
+        ['Показатель', 'Значение'],
+        ['Совокупный баланс', totalBalance],
+        ['Расход за месяц', Number(analytics?.current_month_expense ?? 0)],
+        ['Доход за месяц', lastMonthIncome],
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 22 }, { wch: 16 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Сводка');
+      XLSX.writeFile(wb, `finance-dashboard-${Date.now()}.xlsx`);
+    }
+    toast.success('Сохранено в Excel');
+  }, [activeTab, wallets, transactions, totalBalance, analytics?.current_month_expense, lastMonthIncome]);
+  const handleFullscreen = useCallback(() => {
+    if (!pageRef.current) return;
+    if (!document.fullscreenElement) {
+      pageRef.current.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => toast.error('Полный экран недоступен'));
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false));
+    }
+  }, []);
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
-      {/* Desktop tabs */}
-      <nav className="hidden md:flex gap-3 border-b border-white/10">
-        {(['dashboard', 'wallets', 'transactions'] as FinanceTab[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`pb-3 px-2 text-sm font-medium border-b-2 transition ${activeTab === tab ? 'border-imperial-gold text-imperial-gold' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-          >
-            {tab === 'dashboard' ? 'Сводка' : tab === 'wallets' ? 'Кошельки' : 'Журнал'}
-          </button>
-        ))}
-      </nav>
+  return (
+    <div ref={pageRef} className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Финансовый центр</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Сводка, кошельки и журнал операций</p>
+        </div>
+        <div className="flex flex-nowrap items-center gap-1.5">
+          <button type="button" onClick={() => setTransactionModalMode('expense')} title="Новая операция" className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs">+</button>
+          <button type="button" onClick={() => setWalletModalOpen(true)} title="Добавить кошелёк" className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">Кошелёк</button>
+          <button type="button" onClick={() => setCategoryManagerOpen(true)} title="Настройки категорий" className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">⚙️</button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" onClick={handleExportJpg} disabled={!!exportLoading} className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs">JPG</button>
+          <button type="button" onClick={handleExportPdf} disabled={!!exportLoading} className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs">PDF</button>
+          <button type="button" onClick={handleExportExcel} className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">Excel</button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" onClick={() => setViewMode('grid')} title="Сетка" className={`p-1.5 rounded-md border ${viewMode === 'grid' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={() => setViewMode('list')} title="Список" className={`p-1.5 rounded-md border ${viewMode === 'list' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}><List className="w-3.5 h-3.5" /></button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" onClick={handleFullscreen} className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700" title={isFullscreen ? 'Свернуть' : 'Во весь экран'}>{isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}</button>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700 p-2 flex flex-wrap gap-2 items-end">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Раздел:</label>
+          {(['dashboard', 'wallets', 'transactions'] as FinanceTab[]).map((tab) => (
+            <button key={tab} type="button" onClick={() => setActiveTab(tab)} className={`px-2 py-1 text-sm rounded border ${activeTab === tab ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+              {tab === 'dashboard' ? 'Сводка' : tab === 'wallets' ? 'Кошельки' : 'Журнал'}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'transactions' && (
+          <>
+            <div className="min-w-0">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Кошелёк</label>
+              <select value={filters.walletId} onChange={(e) => setFilters({ ...filters, walletId: e.target.value })} className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[10rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 [color-scheme:inherit]">
+                <option value="all">Все</option>
+                {wallets.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Проект</label>
+              <select value={filters.projectId} onChange={(e) => setFilters({ ...filters, projectId: e.target.value })} className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[10rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 [color-scheme:inherit]">
+                <option value="all">Все</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-0">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Дата от</label>
+              <input type="date" value={filters.dateFrom} onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })} className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[8.5rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+            </div>
+            <div className="min-w-0">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Дата до</label>
+              <input type="date" value={filters.dateTo} onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })} className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[8.5rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-imperial-surface/95 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
@@ -680,59 +779,8 @@ function TransactionsTab({
   onOpenModal: (mode: TransactionModalMode) => void;
   onSelectTransaction: (tx: Transaction) => void;
 }) {
-  const handleInputChange = (field: keyof TransactionFiltersState, value: string) => {
-    setFilters({ ...filters, [field]: value });
-  };
-
-  const filtersBar = (
-    <div className="rounded-2xl border border-white/10 bg-imperial-surface/80 p-4 flex flex-wrap gap-3">
-      <select
-        className={`${selectClass} text-sm min-h-[44px] md:min-h-0`}
-        value={filters.walletId}
-        onChange={(e) => handleInputChange('walletId', e.target.value)}
-      >
-        <option value="all" style={selectOptionStyle}>Все кошельки</option>
-        {wallets.map((wallet) => (
-          <option key={wallet.id} value={wallet.id} style={selectOptionStyle}>{wallet.name}</option>
-        ))}
-      </select>
-      <select
-        className={`${selectClass} text-sm min-h-[44px] md:min-h-0`}
-        value={filters.projectId}
-        onChange={(e) => handleInputChange('projectId', e.target.value)}
-      >
-        <option value="all" style={selectOptionStyle}>Все проекты</option>
-        {projects.map((project) => (
-          <option key={project.id} value={project.id} style={selectOptionStyle}>{project.name}</option>
-        ))}
-      </select>
-      <input
-        type="date"
-        className={`${inputClass} text-sm min-h-[44px] md:min-h-0`}
-        value={filters.dateFrom}
-        onChange={(e) => handleInputChange('dateFrom', e.target.value)}
-      />
-      <input
-        type="date"
-        className={`${inputClass} text-sm min-h-[44px] md:min-h-0`}
-        value={filters.dateTo}
-        onChange={(e) => handleInputChange('dateTo', e.target.value)}
-      />
-      <div className="flex-1" />
-      <button
-        type="button"
-        onClick={() => onOpenModal('expense')}
-        className="hidden md:block px-4 py-2 text-sm rounded-xl bg-imperial-gold text-black font-semibold"
-      >
-        + Операция
-      </button>
-    </div>
-  );
-
   return (
     <div className="space-y-4">
-      {filtersBar}
-
       {/* Mobile: Transaction List (Feed) */}
       <div className="md:hidden">
         <TransactionList

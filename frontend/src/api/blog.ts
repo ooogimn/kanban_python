@@ -27,6 +27,10 @@ export interface BlogPostListItem {
   published_at: string | null;
   views_count: number;
   created_at: string;
+  meta_title?: string;
+  meta_description?: string;
+  canonical_url?: string;
+  og_image?: string;
 }
 
 export interface BlogPostDetail extends BlogPostListItem {
@@ -37,6 +41,10 @@ export interface BlogPostDetail extends BlogPostListItem {
   is_published: boolean;
   tags: { id: number; name: string; slug: string }[];
   updated_at: string;
+  meta_title?: string;
+  meta_description?: string;
+  canonical_url?: string;
+  og_image?: string;
 }
 
 export interface BlogPostsParams {
@@ -61,13 +69,13 @@ export const blogApi = {
 
   /** Список категорий */
   getCategories: async (): Promise<BlogCategory[]> => {
-    const response = await api.get<BlogCategory[]>('/blog/categories/');
+    const response = await api.get<BlogCategory[] | { results: BlogCategory[] }>('/blog/categories/');
     return Array.isArray(response.data) ? response.data : response.data?.results ?? [];
   },
 
   /** Список тегов */
   getTags: async (): Promise<BlogTag[]> => {
-    const response = await api.get<BlogTag[]>('/blog/tags/');
+    const response = await api.get<BlogTag[] | { results: BlogTag[] }>('/blog/tags/');
     return Array.isArray(response.data) ? response.data : response.data?.results ?? [];
   },
 

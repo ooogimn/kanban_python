@@ -1,5 +1,14 @@
 import api from './client';
-import { LoginCredentials, AuthTokens, User, UserProfile, UserProfileUpdate, TelegramAuthData } from '../types';
+import {
+  LoginCredentials,
+  AuthTokens,
+  User,
+  UserProfile,
+  UserProfileUpdate,
+  TelegramAuthData,
+  AuthResponse,
+  SocialProvider,
+} from '../types';
 
 export interface RegisterData {
   username: string;
@@ -42,17 +51,17 @@ export interface VerifyCodeData {
 }
 
 export const authApi = {
-  login: async (credentials: LoginCredentials): Promise<AuthTokens & { user: User }> => {
+  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post('/auth/login/', credentials);
     return response.data;
   },
 
-  telegramLogin: async (data: TelegramAuthData): Promise<AuthTokens & { user: User }> => {
+  telegramLogin: async (data: TelegramAuthData): Promise<AuthResponse> => {
     const response = await api.post('/auth/telegram/', data);
     return response.data;
   },
 
-  register: async (data: RegisterData): Promise<AuthTokens & { user: User }> => {
+  register: async (data: RegisterData): Promise<AuthResponse> => {
     const response = await api.post('/auth/register/', data);
     return response.data;
   },
@@ -62,8 +71,37 @@ export const authApi = {
     return response.data;
   },
 
-  verifyCode: async (data: VerifyCodeData): Promise<AuthTokens & { user: User }> => {
+  verifyCode: async (data: VerifyCodeData): Promise<AuthResponse> => {
     const response = await api.post('/auth/verify-code/', data);
+    return response.data;
+  },
+
+  getSocialProviders: async (): Promise<Record<SocialProvider, boolean>> => {
+    const response = await api.get<{ providers: Record<SocialProvider, boolean> }>('/auth/social/providers/');
+    return response.data.providers;
+  },
+
+  getSocialStartUrl: async (provider: SocialProvider, nextPath: '/login' | '/register' = '/login'): Promise<{ auth_url: string }> => {
+    const response = await api.get<{ auth_url: string }>(`/auth/social/${provider}/start/`, {
+      params: { next: nextPath },
+    });
+    return response.data;
+  },
+
+  socialExchange: async (provider: SocialProvider, payload: { code: string; state: string }): Promise<AuthResponse> => {
+    const response = await api.post(`/auth/social/${provider}/exchange/`, payload);
+    return response.data;
+  },
+
+  hasPassword: async (): Promise<{ has_password: boolean }> => {
+    const response = await api.get<{ has_password: boolean }>('/auth/password/has/');
+    return response.data;
+  },
+
+  setPassword: async (newPassword: string): Promise<{ detail: string }> => {
+    const response = await api.post<{ detail: string }>('/auth/password/set/', {
+      new_password: newPassword,
+    });
     return response.data;
   },
 

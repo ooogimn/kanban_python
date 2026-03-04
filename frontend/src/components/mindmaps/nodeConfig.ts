@@ -55,8 +55,12 @@ export const COLOR_PRESETS = [
   { name: 'Белый', value: '#FFFFFF' },
 ] as const;
 
-export const DEFAULT_NODE_WIDTH = 200;
-export const DEFAULT_NODE_HEIGHT = 80;
+/** Минимальный размер узла (совпадает с NodeResizer minWidth/minHeight) */
+export const MIN_NODE_WIDTH = 100;
+export const MIN_NODE_HEIGHT = 44;
+/** Размер узла по умолчанию при создании — максимально маленький */
+export const DEFAULT_NODE_WIDTH = MIN_NODE_WIDTH;
+export const DEFAULT_NODE_HEIGHT = MIN_NODE_HEIGHT;
 export const DEFAULT_LABEL_FONT_SIZE = 10;
 export const DEFAULT_LABEL_COLOR = '#e2e8f0';
 export const CARD_BG_DEFAULT = '#0f172a';

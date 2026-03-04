@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
+import { SocialProvider } from '../types';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
@@ -18,7 +19,14 @@ export default function RegisterPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
+  const { setUser, socialLogin } = useAuthStore();
+  const [socialProviders, setSocialProviders] = useState<Record<SocialProvider, boolean>>({
+    google: false,
+    yandex: false,
+    telegram: false,
+    vk: false,
+    mail: false,
+  });
 
   const { data: inviteInfo, isLoading: inviteLoading, error: inviteError } = useQuery({
     queryKey: ['invite-token', inviteToken],
@@ -31,6 +39,69 @@ export default function RegisterPage() {
       setFormData((prev) => ({ ...prev, email: inviteInfo.email }));
     }
   }, [inviteInfo?.email]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const providers = await authApi.getSocialProviders();
+        if (!cancelled) setSocialProviders(providers);
+      } catch {
+        // ignore
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const provider = searchParams.get('social_provider') as SocialProvider | null;
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    const error = searchParams.get('error');
+    if (!provider) return;
+    if (error) {
+      toast.error(`Регистрация через ${provider} отклонена или завершилась ошибкой.`);
+      return;
+    }
+    if (!code || !state) return;
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        await socialLogin(provider, code, state);
+        if (cancelled) return;
+        toast.success(`Вход/регистрация через ${provider} выполнены`);
+        navigate('/dashboard');
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg =
+          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+          `Ошибка регистрации через ${provider}`;
+        toast.error(msg);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, socialLogin, navigate]);
+
+  const startSocialRegister = async (provider: SocialProvider) => {
+    try {
+      setIsLoading(true);
+      const { auth_url } = await authApi.getSocialStartUrl(provider, '/register');
+      window.location.href = auth_url;
+    } catch (error: unknown) {
+      const msg =
+        (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        `Не удалось начать регистрацию через ${provider}`;
+      toast.error(msg);
+      setIsLoading(false);
+    }
+  };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +163,59 @@ export default function RegisterPage() {
           )}
           {!inviteToken && <p className="text-gray-600">Создайте новый аккаунт</p>}
         </div>
+
+        {(socialProviders.google || socialProviders.yandex || socialProviders.vk || socialProviders.mail || socialProviders.telegram) && (
+          <div className="mb-6 p-3 border border-gray-200 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2 text-center">Быстрая регистрация через</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {socialProviders.google && (
+                <button
+                  type="button"
+                  onClick={() => startSocialRegister('google')}
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                >
+                  Google
+                </button>
+              )}
+              {socialProviders.yandex && (
+                <button
+                  type="button"
+                  onClick={() => startSocialRegister('yandex')}
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                >
+                  Яндекс
+                </button>
+              )}
+              {socialProviders.vk && (
+                <button
+                  type="button"
+                  onClick={() => startSocialRegister('vk')}
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                >
+                  VK
+                </button>
+              )}
+              {socialProviders.mail && (
+                <button
+                  type="button"
+                  onClick={() => startSocialRegister('mail')}
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                >
+                  Mail
+                </button>
+              )}
+              {socialProviders.telegram && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                >
+                  Telegram (через страницу входа)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleRegisterSubmit} className="space-y-6">
           <div>

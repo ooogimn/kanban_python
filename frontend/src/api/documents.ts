@@ -118,6 +118,14 @@ export const documentsApi = {
   },
 
   /**
+   * Получение ленты всех комментариев по воркспейсам пользователя (Таск 5.2)
+   */
+  getGlobalComments: async (params?: { page?: number }): Promise<ApiResponse<Comment>> => {
+    const response = await api.get('/documents/comments/global_feed/', { params });
+    return response.data;
+  },
+
+  /**
    * Создание комментария
    */
   createComment: async (

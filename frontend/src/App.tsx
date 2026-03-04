@@ -43,6 +43,12 @@ import TermsPage from './pages/public/TermsPage';
 import PersonalDataPage from './pages/public/PersonalDataPage';
 import OfferPage from './pages/public/OfferPage';
 import LegalContactsPage from './pages/public/LegalContactsPage';
+import CookiePolicyPage from './pages/public/CookiePolicyPage';
+import AccountLayout from './pages/account/AccountLayout';
+import SubscriptionPage from './pages/account/SubscriptionPage';
+import PaymentsPage from './pages/account/PaymentsPage';
+import UpgradePage from './pages/account/UpgradePage';
+import PaymentReturnPage from './pages/account/PaymentReturnPage';
 import BlogPage from './pages/BlogPage';
 import BlogPostPage from './pages/BlogPostPage';
 import SaasDashboardPage from './pages/saas/SaasDashboardPage';
@@ -104,6 +110,9 @@ function App() {
           <Route path="legal/contacts" element={<PublicLayout />}>
             <Route index element={<LegalContactsPage />} />
           </Route>
+          <Route path="cookies" element={<PublicLayout />}>
+            <Route index element={<CookiePolicyPage />} />
+          </Route>
           <Route path="blog" element={<BlogLayoutWrapper />}>
             <Route index element={<BlogPage />} />
             <Route path=":slug" element={<BlogPostPage />} />
@@ -151,6 +160,15 @@ function App() {
             <Route path="mindmaps/:id" element={<MindMapEditorPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="settings/password" element={<ChangePasswordPage />} />
+            {/* ── Личный кабинет ── */}
+            <Route path="account" element={<AccountLayout />}>
+              <Route index element={<ProfilePage />} />
+              <Route path="subscription" element={<SubscriptionPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="upgrade" element={<UpgradePage />} />
+              {/* R2: куда редиректит ЮКасса после оплаты (YOOKASSA_RETURN_URL) */}
+              <Route path="payment-return" element={<PaymentReturnPage />} />
+            </Route>
           </Route>
         </Route>
 

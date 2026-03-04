@@ -17,6 +17,9 @@ import FooterAdGrid from './FooterAdGrid';
 import AiChatWidget from './ai/AiChatWidget';
 import GlobalChatDrawer from './GlobalChatDrawer';
 import OnboardingWizard from './onboarding/OnboardingWizard';
+import { LEGAL_LINKS } from '../constants/legalLinks';
+import { openCookieConsentSettings } from '../lib/cookieConsent';
+import { accountApi } from '../api/account';
 
 type NavItem = {
   name: string;
@@ -37,6 +40,7 @@ const personalNavItems: NavItem[] = [
   { name: 'Блог', href: '/blog', icon: '📰' },
   { name: 'ИИ-агенты', href: '/ai/marketplace', icon: '✨', iconImage: '/CHAT_BOT_AI.png', title: 'Маркетплейс и чат с ИИ' },
   { name: 'Карта', href: '/mindmaps', icon: '🗺️', title: 'Карта' },
+  { name: 'Кабинет', href: '/account', icon: '💳', title: 'Личный кабинет — подписка и тариф' },
 ];
 
 /** Business (Premium) — при plan_type === 'personal' показываются неактивными (иконки без замка, клик → модалка) */
@@ -91,6 +95,17 @@ export default function Layout({ overrideContent }: LayoutProps = {}) {
   ];
   const openUpgradeModal = useUpgradeModalStore((s) => s.openModal);
   useDashboardWebSocket();
+
+  // Загружаем данные текущей подписки для бейджика в хедере
+  const { data: accountData } = useQuery({
+    queryKey: ['my-account'],
+    queryFn: accountApi.getAccount,
+    retry: 1,
+    enabled: !!user,
+    staleTime: 5 * 60 * 1000, // кешируем 5 мин
+  });
+  // plan_badge — новое поле R1-S4 от Cursor AI (напр. 'PRO'), fallback на plan.name
+  const currentPlanName = accountData?.plan_badge ?? accountData?.plan?.name ?? null;
 
   // Синхронизация темы с DOM при монтировании (на случай гонки с гидрацией persist)
   useEffect(() => {
@@ -261,13 +276,21 @@ export default function Layout({ overrideContent }: LayoutProps = {}) {
               </Link>
             )}
             <Link
-              to="/profile"
+              to="/account"
               className="flex items-center gap-3 hover:opacity-90 transition-opacity"
-              title="Личный кабинет"
+              title="Личный кабинет — подписка и тариф"
             >
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-none">{displayName}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{user?.email}</p>
+                <div className="flex items-center gap-1 justify-end mt-0.5">
+                  {currentPlanName ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-semibold uppercase tracking-wide border border-red-500/20">
+                      {currentPlanName}
+                    </span>
+                  ) : (
+                    <p className="text-[10px] text-slate-500">{user?.email}</p>
+                  )}
+                </div>
               </div>
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl object-cover border-2 border-white dark:border-slate-700 shadow-sm shrink-0" />
@@ -295,11 +318,18 @@ export default function Layout({ overrideContent }: LayoutProps = {}) {
           )}
           {planType === 'personal' && <FooterAdGrid />}
           <footer className="mt-auto pt-6 pb-2 border-t border-white/10 text-center text-xs text-imperial-muted flex flex-wrap items-center justify-center gap-3">
-            <Link to="/terms" className="hover:text-imperial-gold transition-colors">Пользовательское соглашение</Link>
-            <Link to="/privacy" className="hover:text-imperial-gold transition-colors">Политика конфиденциальности</Link>
-            <Link to="/personal-data" className="hover:text-imperial-gold transition-colors">Политика ПДн</Link>
-            <Link to="/offer" className="hover:text-imperial-gold transition-colors">Оферта</Link>
-            <Link to="/legal/contacts" className="hover:text-imperial-gold transition-colors">Контакты</Link>
+            {LEGAL_LINKS.map((link) => (
+              <Link key={link.href} to={link.href} className="hover:text-imperial-gold transition-colors">
+                {link.label}
+              </Link>
+            ))}
+            <button
+              type="button"
+              onClick={openCookieConsentSettings}
+              className="hover:text-imperial-gold transition-colors"
+            >
+              Настройки cookie
+            </button>
           </footer>
         </div>
       </main>

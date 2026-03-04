@@ -64,8 +64,8 @@ describe('GanttChart', () => {
       />
     );
     expect(screen.getByText('Мой проект')).toBeInTheDocument();
-    expect(screen.getByText('Задача один')).toBeInTheDocument();
-    expect(screen.getByText('Задача два')).toBeInTheDocument();
+    expect(screen.getAllByText('Задача один').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Задача два').length).toBeGreaterThan(0);
   });
 
   it('отображает список зависимостей', () => {
@@ -92,7 +92,7 @@ describe('GanttChart', () => {
         onTaskUpdate={onTaskUpdate}
       />
     );
-    const bars = screen.getAllByRole('button', { name: /Перетащите для сдвига/ });
+    const bars = screen.getAllByRole('button', { name: /Перетащите для сдвига:/ });
     const firstBar = bars[0];
     fireEvent.mouseDown(firstBar, { clientX: 100 });
     fireEvent.mouseUp(window);
@@ -130,11 +130,10 @@ describe('GanttChart', () => {
         onDependencyCreate={onDependencyCreate}
       />
     );
-    const [predSelect, succSelect] = screen.getAllByRole('combobox');
-    fireEvent.change(predSelect, { target: { value: '1' } });
-    fireEvent.change(succSelect, { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('Предшественник зависимости'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Преемник зависимости'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Добавить' }));
-    expect(onDependencyCreate).toHaveBeenCalledWith(1, 2);
+    expect(onDependencyCreate).toHaveBeenCalledWith(1, 2, 'FS', 0);
   });
 
   it('отображает кнопку удаления зависимости при onDependencyDelete', () => {

@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { toPng, toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import * as XLSX from 'xlsx-js-style';
+import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
 import { workspaceApi } from '../api/workspace';
 import { hrApi } from '../api/hr';
@@ -21,6 +26,11 @@ export default function ContactsPage() {
   const [dossierContact, setDossierContact] = useState<Contact | null>(null);
   const [activeTab, setActiveTab] = useState<'SYSTEM' | 'NON_SYSTEM' | 'AI_TEAM'>('SYSTEM');
   const [departmentFilter, setDepartmentFilter] = useState<number | ''>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [exportLoading, setExportLoading] = useState<'jpg' | 'pdf' | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -116,6 +126,95 @@ export default function ContactsPage() {
         })
       : contactsForTab;
 
+  const searchLower = searchQuery.trim().toLowerCase();
+  const filteredContactList =
+    !searchLower
+      ? contactList
+      : contactList.filter(
+          (c) =>
+            `${(c.first_name ?? '')} ${(c.last_name ?? '')}`.toLowerCase().includes(searchLower) ||
+            (c.email ?? '').toLowerCase().includes(searchLower)
+        );
+
+  const exportOptions = { pixelRatio: 2, cacheBust: true };
+  const handleExportJpg = useCallback(() => {
+    if (!pageRef.current) return;
+    setExportLoading('jpg');
+    toJpeg(pageRef.current, { ...exportOptions, quality: 0.95 })
+      .then((dataUrl) => {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `contacts-${Date.now()}.jpg`;
+        a.click();
+        toast.success('Сохранено в JPG');
+      })
+      .catch(() => toast.error('Не удалось сохранить JPG'))
+      .finally(() => setExportLoading(null));
+  }, []);
+  const handleExportPdf = useCallback(() => {
+    if (!pageRef.current) return;
+    setExportLoading('pdf');
+    toPng(pageRef.current, exportOptions)
+      .then((dataUrl) => {
+        const img = new Image();
+        img.onload = () => {
+          const pdf = new jsPDF({
+            orientation: img.width > img.height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [img.width, img.height],
+          });
+          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+          pdf.save(`contacts-${Date.now()}.pdf`);
+          toast.success('Сохранено в PDF');
+        };
+        img.src = dataUrl;
+      })
+      .catch(() => toast.error('Не удалось сохранить PDF'))
+      .finally(() => setExportLoading(null));
+  }, []);
+  const handleExportExcel = useCallback(() => {
+    if (activeTab === 'AI_TEAM') {
+      const rows: (string | number)[][] = [['Имя', 'Роль', 'Сообщений', canSeeFinanceFlag ? 'Затраты (₽/мес)' : '—']];
+      aiTeamList.forEach((wa) =>
+        rows.push([
+          wa.agent.name ?? '',
+          wa.agent.role ?? '',
+          wa.message_count ?? 0,
+          canSeeFinanceFlag && wa.agent.monthly_cost != null ? Number(wa.agent.monthly_cost) : '—',
+        ])
+      );
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 12 }, { wch: 14 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'ИИ-сотрудники');
+      XLSX.writeFile(wb, `contacts-ai-${Date.now()}.xlsx`);
+    } else {
+      const rows: (string | number)[][] = [['Имя', 'Фамилия', 'Email', 'Группа']];
+      filteredContactList.forEach((c) =>
+        rows.push([c.first_name ?? '', c.last_name ?? '', c.email ?? '', c.group ?? ''])
+      );
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 12 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Контакты');
+      XLSX.writeFile(wb, `contacts-${Date.now()}.xlsx`);
+    }
+    toast.success('Сохранено в Excel');
+  }, [activeTab, aiTeamList, canSeeFinanceFlag, filteredContactList]);
+  const handleFullscreen = useCallback(() => {
+    if (!pageRef.current) return;
+    if (!document.fullscreenElement) {
+      pageRef.current.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => toast.error('Полный экран недоступен'));
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false));
+    }
+  }, []);
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
   const handleRowClick = (contact: Contact) => {
     if (contact.id < 0) {
       setDossierContact(contact);
@@ -137,61 +236,68 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">Контакты</h1>
-        {activeTab === 'AI_TEAM' ? (
-          <Link
-            to="/ai/marketplace"
-            className="px-4 py-2 rounded-xl bg-imperial-gold/20 text-imperial-gold font-medium hover:bg-imperial-gold/30 border border-imperial-gold/40 transition-colors"
-          >
-            ✨ Нанять ИИ-агента
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              setEditContact(null);
-              setCreateModalOpen(true);
-            }}
-            className="px-4 py-2 rounded-xl bg-imperial-gold text-imperial-bg font-medium hover:bg-amber-500 transition-colors"
-          >
-            + Добавить контакт
-          </button>
-        )}
+    <div ref={pageRef} className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Контакты</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Команда, контрагенты и ИИ-сотрудники</p>
+        </div>
+        <div className="flex flex-nowrap items-center gap-1.5">
+          {activeTab === 'AI_TEAM' ? (
+            <Link
+              to="/ai/marketplace"
+              className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
+            >
+              ✨ Нанять
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setEditContact(null); setCreateModalOpen(true); }}
+              title="Добавить контакт"
+              className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
+            >
+              +
+            </button>
+          )}
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" onClick={handleExportJpg} disabled={!!exportLoading} className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs">JPG</button>
+          <button type="button" onClick={handleExportPdf} disabled={!!exportLoading} className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 text-xs">PDF</button>
+          <button type="button" onClick={handleExportExcel} className="px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs">Excel</button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" onClick={() => setViewMode('grid')} title="Сетка" className={`p-1.5 rounded-md border ${viewMode === 'grid' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={() => setViewMode('list')} title="Список" className={`p-1.5 rounded-md border ${viewMode === 'list' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}><List className="w-3.5 h-3.5" /></button>
+          <span className="text-slate-400 dark:text-slate-500 mx-0.5 text-xs">|</span>
+          <button type="button" onClick={handleFullscreen} className="p-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700" title={isFullscreen ? 'Свернуть' : 'Во весь экран'}>{isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}</button>
+        </div>
       </div>
 
-      <div className="flex gap-2 border-b border-white/10 pb-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('SYSTEM')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'SYSTEM'
-              ? 'bg-imperial-gold/20 text-imperial-gold border border-imperial-gold/40'
-              : 'text-imperial-muted hover:text-white hover:bg-white/5'
-            }`}
-        >
-          👥 Команда
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('NON_SYSTEM')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'NON_SYSTEM'
-              ? 'bg-imperial-gold/20 text-imperial-gold border border-imperial-gold/40'
-              : 'text-imperial-muted hover:text-white hover:bg-white/5'
-            }`}
-        >
-          🏢 Контрагенты
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('AI_TEAM')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'AI_TEAM'
-              ? 'bg-imperial-gold/20 text-imperial-gold border border-imperial-gold/40'
-              : 'text-imperial-muted hover:text-white hover:bg-white/5'
-            }`}
-        >
-          ✨ ИИ-сотрудники
-        </button>
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow dark:shadow-none border border-slate-200 dark:border-slate-700 p-2 flex flex-wrap gap-2 items-end">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Тип:</label>
+          <button type="button" onClick={() => setActiveTab('SYSTEM')} className={`px-2 py-1 text-sm rounded border ${activeTab === 'SYSTEM' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>👥 Команда</button>
+          <button type="button" onClick={() => setActiveTab('NON_SYSTEM')} className={`px-2 py-1 text-sm rounded border ${activeTab === 'NON_SYSTEM' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>🏢 Контрагенты</button>
+          <button type="button" onClick={() => setActiveTab('AI_TEAM')} className={`px-2 py-1 text-sm rounded border ${activeTab === 'AI_TEAM' ? 'bg-primary-100 dark:bg-primary-900/30 border-primary-500 text-primary-700 dark:text-primary-300' : 'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>✨ ИИ-сотрудники</button>
+        </div>
+        {activeTab !== 'AI_TEAM' && (
+          <>
+            <div className="min-w-0 flex-1 sm:flex-initial sm:min-w-[170px]">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Поиск</label>
+              <input type="search" placeholder="Имя, фамилия, email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[11.8rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" />
+            </div>
+            {activeTab === 'SYSTEM' && departments.length > 0 && (
+              <div className="min-w-0">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-0.5">Отдел</label>
+                <select value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value === '' ? '' : Number(e.target.value))} className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-primary-500 w-full sm:w-[8.5rem] bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100">
+                  <option value="">Все</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {activeTab === 'AI_TEAM' ? (
@@ -266,47 +372,43 @@ export default function ContactsPage() {
           </div>
         )
       ) : isLoading ? (
-        <div className="py-12 text-center text-imperial-muted">Загрузка контактов…</div>
-      ) : (
-        <>
-          {activeTab === 'SYSTEM' && departments.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-imperial-muted">Отдел:</span>
-              <button
-                type="button"
-                onClick={() => setDepartmentFilter('')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  departmentFilter === ''
-                    ? 'bg-imperial-gold/20 text-imperial-gold border border-imperial-gold/40'
-                    : 'bg-white/5 text-imperial-muted hover:text-white'
-                }`}
-              >
-                Все
-              </button>
-              {departments.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => setDepartmentFilter(d.id)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    departmentFilter === d.id
-                      ? 'bg-imperial-gold/20 text-imperial-gold border border-imperial-gold/40'
-                      : 'bg-white/5 text-imperial-muted hover:text-white'
-                  }`}
-                >
-                  {d.name}
-                </button>
-              ))}
+        <div className="py-12 text-center text-slate-500 dark:text-slate-400">Загрузка контактов…</div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredContactList.map((c) => (
+            <div
+              key={c.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => handleRowClick(c)}
+              onKeyDown={(e) => e.key === 'Enter' && handleRowClick(c)}
+              className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-4 hover:border-primary-500 dark:hover:border-primary-500 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                {c.avatar_url ? (
+                  <img src={getAssetUrl(c.avatar_url)} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-600" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 flex items-center justify-center text-lg font-bold">
+                    {(c.first_name ?? '?').charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{[c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{c.email || '—'}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{c.group ?? ''}</p>
+                </div>
+              </div>
             </div>
-          )}
-          <ContactListTable
-          contacts={contactList}
+          ))}
+        </div>
+      ) : (
+        <ContactListTable
+          contacts={filteredContactList}
           canSeeFinance={canSeeFinanceFlag}
           workspaceMembers={workspaceMembers}
           onRowClick={handleRowClick}
           onNameClick={(c) => setDossierContact(c)}
         />
-        </>
       )}
 
       {createModalOpen && (

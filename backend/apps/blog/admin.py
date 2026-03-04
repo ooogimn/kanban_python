@@ -7,7 +7,7 @@ from .models import Post
 class PostAdmin(admin.ModelAdmin):
     list_display = ('title', 'slug', 'is_published', 'published_at', 'views_count', 'created_at')
     list_filter = ('is_published', 'created_at')
-    search_fields = ('title', 'excerpt', 'content')
+    search_fields = ('title', 'excerpt', 'content', 'meta_title', 'meta_description', 'canonical_url')
     prepopulated_fields = {'slug': ('title',)}
     readonly_fields = ('views_count', 'created_at', 'updated_at')
 

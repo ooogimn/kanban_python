@@ -12,10 +12,18 @@ from apps.auth.views import (
     verify_code,
     profile_me,
     invite_token_info,
+    has_password,
+    set_password,
     request_password_reset,
     reset_password,
     request_password_change,
     change_password,
+)
+from apps.auth.social_views import (
+    social_providers,
+    social_start,
+    social_callback,
+    social_exchange,
 )
 
 urlpatterns = [
@@ -32,4 +40,10 @@ urlpatterns = [
     path('password-reset/confirm/', reset_password, name='reset_password'),
     path('password-change/request/', request_password_change, name='request_password_change'),
     path('password-change/confirm/', change_password, name='change_password'),
+    path('password/has/', has_password, name='has_password'),
+    path('password/set/', set_password, name='set_password'),
+    path('social/providers/', social_providers, name='social_providers'),
+    path('social/<str:provider>/start/', social_start, name='social_start'),
+    path('social/<str:provider>/callback/', social_callback, name='social_callback'),
+    path('social/<str:provider>/exchange/', social_exchange, name='social_exchange'),
 ]

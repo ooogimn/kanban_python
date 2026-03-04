@@ -7,11 +7,11 @@ from datetime import timedelta
 import os
 import uuid
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, F, Value
 from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.db.models.functions import TruncMonth
-from django.utils import timezone
+from django.db.models.functions import Coalesce
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -20,7 +20,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.contrib.auth import get_user_model
 from apps.auth.permissions import IsSuperUser
 from apps.core.models import Workspace, UserEvent
-from apps.billing.models import Subscription
+from apps.billing.models import Subscription, BillingSubscription, PaymentTransaction
 from .models import Plan
 from .serializers import (
     PlanSerializer,
@@ -29,6 +29,7 @@ from .serializers import (
     SaasAdvertisementSerializer,
     SaasCategorySerializer,
     SaasTagSerializer,
+    SaasRevenueStatsSerializer,
 )
 from apps.blog.models import Category, Post, Tag
 from apps.marketing.models import Advertisement
@@ -67,6 +68,127 @@ class SaasDashboardViewSet(viewsets.ViewSet):
             'mrr': str(mrr),
             'registrations': registrations,
         })
+
+    @action(detail=False, methods=['get'], url_path='revenue')
+    def revenue(self, request):
+        now = timezone.now()
+        six_months_ago = now - timedelta(days=180)
+
+        total_users = User.objects.count()
+        active_workspaces = Workspace.objects.count()
+
+        active_subs_qs = BillingSubscription.objects.select_related('plan_version').filter(
+            status=BillingSubscription.STATUS_ACTIVE
+        )
+        trial_subscriptions = BillingSubscription.objects.filter(
+            status=BillingSubscription.STATUS_TRIALING
+        ).count()
+        active_subscriptions = active_subs_qs.count()
+        churn_count = BillingSubscription.objects.filter(
+            status__in=[BillingSubscription.STATUS_CANCELED, BillingSubscription.STATUS_EXPIRED],
+            updated_at__gte=now.replace(day=1, hour=0, minute=0, second=0, microsecond=0),
+        ).count()
+
+        mrr = Decimal('0')
+        for sub in active_subs_qs:
+            if not sub.plan_version:
+                continue
+            price = sub.plan_version.price or Decimal('0')
+            if sub.plan_version.interval == sub.plan_version.INTERVAL_YEAR:
+                mrr += (price / Decimal('12'))
+            else:
+                mrr += price
+        arr = mrr * Decimal('12')
+
+        registrations_rows = (
+            User.objects.filter(date_joined__gte=six_months_ago)
+            .annotate(month=TruncMonth('date_joined'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+        registrations = [
+            {
+                'month': r['month'].strftime('%Y-%m') if r['month'] else None,
+                'count': r['count'],
+            }
+            for r in registrations_rows
+        ]
+
+        payments_qs = PaymentTransaction.objects.filter(
+            status=PaymentTransaction.STATUS_SUCCEEDED
+        )
+        revenue_by_month_rows = (
+            payments_qs
+            .annotate(month=TruncMonth(Coalesce('paid_at', 'created_at')))
+            .values('month')
+            .annotate(
+                revenue=Coalesce(Sum('amount'), Decimal('0')),
+                count=Count('id'),
+            )
+            .order_by('month')
+        )
+        revenue_by_month = [
+            {
+                'month': row['month'].strftime('%Y-%m') if row['month'] else None,
+                'revenue': float(row['revenue'] or 0),
+                'count': row['count'],
+            }
+            for row in revenue_by_month_rows
+        ]
+
+        revenue_by_provider_rows = (
+            payments_qs.values('provider')
+            .annotate(
+                total=Coalesce(Sum('amount'), Decimal('0')),
+                count=Count('id'),
+            )
+            .order_by('-total')
+        )
+        revenue_by_provider = [
+            {
+                'provider': row['provider'] or 'unknown',
+                'total': float(row['total'] or 0),
+                'count': row['count'],
+            }
+            for row in revenue_by_provider_rows
+        ]
+
+        revenue_by_plan_rows = (
+            payments_qs
+            .annotate(plan_name=Coalesce(F('subscription__plan_version__name'), Value('Unknown')))
+            .values('plan_name')
+            .annotate(
+                total=Coalesce(Sum('amount'), Decimal('0')),
+                count=Count('id'),
+            )
+            .order_by('-total')
+        )
+        revenue_by_plan = [
+            {
+                'plan': row['plan_name'] or 'Unknown',
+                'total': float(row['total'] or 0),
+                'count': row['count'],
+            }
+            for row in revenue_by_plan_rows
+        ]
+
+        payload = {
+            'total_users': total_users,
+            'active_workspaces': active_workspaces,
+            'mrr': f'{mrr:.2f}',
+            'arr': f'{arr:.2f}',
+            'active_subscriptions': active_subscriptions,
+            'trial_subscriptions': trial_subscriptions,
+            'churn_count': churn_count,
+            'registrations': registrations,
+            'revenue_by_month': revenue_by_month,
+            'revenue_by_provider': revenue_by_provider,
+            'revenue_by_plan': revenue_by_plan,
+        }
+        serializer = SaasRevenueStatsSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data)
 
 
 class SaasPlanViewSet(viewsets.ModelViewSet):

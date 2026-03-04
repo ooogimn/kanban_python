@@ -76,7 +76,9 @@ class PostDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'title', 'slug', 'excerpt', 'content', 'image', 'image_url',
+            'id', 'title', 'slug', 'excerpt', 'content',
+            'meta_title', 'meta_description', 'canonical_url', 'og_image',
+            'image', 'image_url',
             'video_url', 'main_media_autoplay',
             'category_id', 'category_name', 'category_slug', 'tags',
             'is_published', 'published_at', 'views_count', 'created_at', 'updated_at',

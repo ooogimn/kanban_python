@@ -11,17 +11,40 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
+from django.http import HttpResponse
+from django.contrib.sitemaps.views import sitemap
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
 from apps.auth.views import profile_me, finish_onboarding
+from apps.blog.sitemaps import BlogPostSitemap
+
+
+def robots_txt(request):
+    sitemap_url = f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}/sitemap.xml"
+    content = "\n".join(
+        [
+            'User-agent: *',
+            'Allow: /',
+            '',
+            f'Sitemap: {sitemap_url}',
+        ]
+    )
+    return HttpResponse(content, content_type='text/plain')
+
+
+sitemaps = {
+    'blog-posts': BlogPostSitemap,
+}
 
 # Редирект с корня на фронт (в dev — http://localhost:3000), чтобы GET / не давал 404
 urlpatterns = [
     path('', RedirectView.as_view(url=settings.FRONTEND_URL, permanent=False)),
     path('admin/', admin.site.urls),
+    path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
+    path('robots.txt', robots_txt, name='robots-txt'),
     
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

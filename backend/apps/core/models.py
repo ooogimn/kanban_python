@@ -478,3 +478,77 @@ class VerificationCode(models.Model):
     def is_expired(self):
         from django.utils import timezone
         return timezone.now() > self.expires_at
+
+
+class SocialIdentity(models.Model):
+    """Связка пользователя с внешним провайдером аутентификации."""
+
+    PROVIDER_GOOGLE = 'google'
+    PROVIDER_YANDEX = 'yandex'
+    PROVIDER_TELEGRAM = 'telegram'
+    PROVIDER_VK = 'vk'
+    PROVIDER_MAIL = 'mail'
+
+    PROVIDER_CHOICES = [
+        (PROVIDER_GOOGLE, 'Google'),
+        (PROVIDER_YANDEX, 'Yandex'),
+        (PROVIDER_TELEGRAM, 'Telegram'),
+        (PROVIDER_VK, 'VK'),
+        (PROVIDER_MAIL, 'Mail'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='social_identities',
+        verbose_name=_('User'),
+    )
+    provider = models.CharField(
+        max_length=32,
+        choices=PROVIDER_CHOICES,
+        verbose_name=_('Provider'),
+    )
+    provider_user_id = models.CharField(
+        max_length=255,
+        verbose_name=_('Provider user id'),
+    )
+    email = models.EmailField(
+        blank=True,
+        null=True,
+        verbose_name=_('Email'),
+    )
+    is_email_verified = models.BooleanField(
+        default=False,
+        verbose_name=_('Is email verified'),
+    )
+    raw_profile = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name=_('Raw provider profile'),
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created at'),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_('Updated at'),
+    )
+
+    class Meta:
+        verbose_name = _('Social identity')
+        verbose_name_plural = _('Social identities')
+        db_table = 'social_identities'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['provider', 'provider_user_id'],
+                name='unique_social_provider_uid',
+            )
+        ]
+        indexes = [
+            models.Index(fields=['provider', 'email']),
+            models.Index(fields=['user']),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}:{self.provider_user_id} -> {self.user_id}"

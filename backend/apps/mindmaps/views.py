@@ -2,8 +2,9 @@
 Views for Mind Maps API.
 """
 from django.db.models import Q
-from rest_framework import viewsets, status
-from rest_framework import filters
+from rest_framework import viewsets, status, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.core.models import WorkspaceMember
@@ -40,3 +41,46 @@ class MindMapViewSet(viewsets.ModelViewSet):
         return qs.filter(
             personal | by_workspace | by_project_workspace | by_workitem_workspace
         ).distinct()
+
+    @action(detail=True, methods=['post'])
+    def export_to_file(self, request, pk=None):
+        """
+        Экспорт карты в JSON файл и прикрепление его как Attachment к проекту/задаче (Task 4.2).
+        """
+        mindmap = self.get_object()
+        data = {
+            'title': mindmap.title,
+            'nodes': mindmap.nodes,
+            'edges': mindmap.edges,
+            'exported_at': str(request.user),
+            'version': '1.0',
+        }
+        import json
+        from django.core.files.base import ContentFile
+        from apps.documents.models import Attachment
+        from django.contrib.contenttypes.models import ContentType
+        
+        content = json.dumps(data, indent=2, ensure_ascii=False)
+        filename = f"{mindmap.title}.json"
+        
+        # Создаем Attachment
+        attachment = Attachment.objects.create(
+            filename=filename,
+            size=len(content.encode('utf-8')),
+            mime_type='application/json',
+            uploaded_by=request.user,
+            project=mindmap.project,
+            # Привязываем к самой карте как к источнику
+            content_type=ContentType.objects.get_for_model(MindMap),
+            object_id=mindmap.id,
+            is_public=False
+        )
+        attachment.file.save(filename, ContentFile(content))
+        
+        # Если привязана к задаче, это будет видно через generic relation или project
+        
+        from apps.documents.serializers import AttachmentSerializer
+        return Response(
+            AttachmentSerializer(attachment, context={'request': request}).data, 
+            status=status.HTTP_201_CREATED
+        )

@@ -4,6 +4,7 @@ Django settings for Office Suite 360 project.
 import json
 import os
 import sys
+import logging
 from pathlib import Path
 import environ
 
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
     
     # Third party
     'rest_framework',
@@ -250,6 +252,18 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'apps.integrations.tasks.run_scheduled_google_sheets_exports',
         'schedule': 3600.0,
     },
+    'billing-refresh-usage-summaries': {
+        'task': 'apps.billing.tasks.refresh_usage_summaries',
+        'schedule': 300.0,
+    },
+    'billing-enforce-subscription-access-states': {
+        'task': 'apps.billing.tasks.enforce_subscription_access_states',
+        'schedule': 900.0,
+    },
+    'billing-process-dunning-notifications': {
+        'task': 'apps.billing.tasks.process_dunning_notifications',
+        'schedule': 1800.0,
+    },
 }
 
 # Password validation
@@ -325,6 +339,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Редирект GET / на фронт (для dev — http://localhost:3000; в прод — ваш домен фронта)
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:3000')
+BACKEND_PUBLIC_URL = env('BACKEND_PUBLIC_URL', default='http://localhost:8000')
 
 # Djoser (управление пользователями) — используем JWT, свои эндпоинты в apps.auth
 DJOSER = {
@@ -353,5 +368,143 @@ SPECTACULAR_SETTINGS = {
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_BOT_USERNAME = env('TELEGRAM_BOT_USERNAME', default='')  # без @, для Deep Link
 
+# Social Auth
+SOCIAL_AUTH_STATE_TTL_SEC = env.int('SOCIAL_AUTH_STATE_TTL_SEC', default=600)
+SOCIAL_AUTH_ALLOWED_FRONTEND_PATHS = env.list(
+    'SOCIAL_AUTH_ALLOWED_FRONTEND_PATHS',
+    default=['/login', '/register'],
+)
+
+SOCIAL_AUTH_GOOGLE_ENABLED = env.bool('SOCIAL_AUTH_GOOGLE_ENABLED', default=False)
+SOCIAL_AUTH_GOOGLE_CLIENT_ID = env('SOCIAL_AUTH_GOOGLE_CLIENT_ID', default='')
+SOCIAL_AUTH_GOOGLE_CLIENT_SECRET = env('SOCIAL_AUTH_GOOGLE_CLIENT_SECRET', default='')
+
+SOCIAL_AUTH_YANDEX_ENABLED = env.bool('SOCIAL_AUTH_YANDEX_ENABLED', default=False)
+SOCIAL_AUTH_YANDEX_CLIENT_ID = env('SOCIAL_AUTH_YANDEX_CLIENT_ID', default='')
+SOCIAL_AUTH_YANDEX_CLIENT_SECRET = env('SOCIAL_AUTH_YANDEX_CLIENT_SECRET', default='')
+
+SOCIAL_AUTH_VK_ENABLED = env.bool('SOCIAL_AUTH_VK_ENABLED', default=False)
+SOCIAL_AUTH_VK_CLIENT_ID = env('SOCIAL_AUTH_VK_CLIENT_ID', default='')
+SOCIAL_AUTH_VK_CLIENT_SECRET = env('SOCIAL_AUTH_VK_CLIENT_SECRET', default='')
+
+SOCIAL_AUTH_MAIL_ENABLED = env.bool('SOCIAL_AUTH_MAIL_ENABLED', default=False)
+SOCIAL_AUTH_MAIL_CLIENT_ID = env('SOCIAL_AUTH_MAIL_CLIENT_ID', default='')
+SOCIAL_AUTH_MAIL_CLIENT_SECRET = env('SOCIAL_AUTH_MAIL_CLIENT_SECRET', default='')
+
+SOCIAL_AUTH_PROVIDERS = {
+    'google': {
+        'enabled': SOCIAL_AUTH_GOOGLE_ENABLED,
+        'client_id': SOCIAL_AUTH_GOOGLE_CLIENT_ID,
+        'client_secret': SOCIAL_AUTH_GOOGLE_CLIENT_SECRET,
+        'authorize_url': 'https://accounts.google.com/o/oauth2/v2/auth',
+        'token_url': 'https://oauth2.googleapis.com/token',
+        'scopes': ['openid', 'email', 'profile'],
+        'use_nonce': True,
+    },
+    'yandex': {
+        'enabled': SOCIAL_AUTH_YANDEX_ENABLED,
+        'client_id': SOCIAL_AUTH_YANDEX_CLIENT_ID,
+        'client_secret': SOCIAL_AUTH_YANDEX_CLIENT_SECRET,
+        'authorize_url': 'https://oauth.yandex.ru/authorize',
+        'token_url': 'https://oauth.yandex.ru/token',
+        'scopes': ['login:email', 'login:info'],
+        'use_nonce': False,
+    },
+    'vk': {
+        'enabled': SOCIAL_AUTH_VK_ENABLED,
+        'client_id': SOCIAL_AUTH_VK_CLIENT_ID,
+        'client_secret': SOCIAL_AUTH_VK_CLIENT_SECRET,
+        'authorize_url': 'https://oauth.vk.com/authorize',
+        'token_url': 'https://oauth.vk.com/access_token',
+        'scopes': ['email'],
+        'use_nonce': False,
+    },
+    'mail': {
+        'enabled': SOCIAL_AUTH_MAIL_ENABLED,
+        'client_id': SOCIAL_AUTH_MAIL_CLIENT_ID,
+        'client_secret': SOCIAL_AUTH_MAIL_CLIENT_SECRET,
+        'authorize_url': 'https://oauth.mail.ru/login',
+        'token_url': 'https://oauth.mail.ru/token',
+        'scopes': ['userinfo'],
+        'use_nonce': False,
+    },
+    'telegram': {
+        'enabled': bool(TELEGRAM_BOT_TOKEN),
+        'client_id': TELEGRAM_BOT_USERNAME,
+        'client_secret': TELEGRAM_BOT_TOKEN,
+    },
+}
+
+# Payments (R2)
+YOOKASSA_SHOP_ID = env('YOOKASSA_SHOP_ID', default='')
+YOOKASSA_SECRET_KEY = env('YOOKASSA_SECRET_KEY', default='')
+YOOKASSA_RETURN_URL = env('YOOKASSA_RETURN_URL', default=f"{FRONTEND_URL.rstrip('/')}/account/payments")
+YANDEX_PAY_MERCHANT_ID = env('YANDEX_PAY_MERCHANT_ID', default='')
+YANDEX_PAY_API_KEY = env('YANDEX_PAY_API_KEY', default='')
+YANDEX_PAY_TEST_MODE = env.bool('YANDEX_PAY_TEST_MODE', default=True)
+YANDEX_PAY_API_URL = env(
+    'YANDEX_PAY_API_URL',
+    default='https://sandbox.pay.yandex.ru' if YANDEX_PAY_TEST_MODE else 'https://pay.yandex.ru',
+)
+BILLING_GRACE_PERIOD_HOURS = env.int('BILLING_GRACE_PERIOD_HOURS', default=72)
+_dunning_schedule_raw = env('BILLING_DUNNING_SCHEDULE_HOURS', default='1,24,48')
+try:
+    BILLING_DUNNING_SCHEDULE_HOURS = [
+        int(x.strip())
+        for x in str(_dunning_schedule_raw).split(',')
+        if str(x).strip()
+    ] or [1, 24, 48]
+except Exception:
+    BILLING_DUNNING_SCHEDULE_HOURS = [1, 24, 48]
+
 # Google Sheets (путь к JSON ключу сервисного аккаунта)
 GOOGLE_APPLICATION_CREDENTIALS = env('GOOGLE_APPLICATION_CREDENTIALS', default='')
+
+# SEO indexing (R6-SEO-4)
+SEO_SITEMAP_PING_TEMPLATES = env.list(
+    'SEO_SITEMAP_PING_TEMPLATES',
+    default=[
+        'https://www.google.com/ping?sitemap={sitemap}',
+        'https://webmaster.yandex.ru/ping?sitemap={sitemap}',
+    ],
+)
+INDEXNOW_ENABLED = env.bool('INDEXNOW_ENABLED', default=False)
+INDEXNOW_KEY = env('INDEXNOW_KEY', default='')
+INDEXNOW_HOST = env('INDEXNOW_HOST', default='')
+
+# Monitoring (R3-S3)
+SENTRY_DSN = env('SENTRY_DSN', default='')
+SENTRY_ENVIRONMENT = env('SENTRY_ENVIRONMENT', default='development' if DEBUG else 'production')
+SENTRY_TRACES_SAMPLE_RATE = env.float('SENTRY_TRACES_SAMPLE_RATE', default=0.05)
+SENTRY_PROFILES_SAMPLE_RATE = env.float('SENTRY_PROFILES_SAMPLE_RATE', default=0.0)
+SENTRY_SEND_PII = env.bool('SENTRY_SEND_PII', default=False)
+
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.logging import LoggingIntegration
+
+        sentry_logging = LoggingIntegration(
+            level=logging.INFO,
+            event_level=logging.ERROR,
+        )
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration(), CeleryIntegration(), sentry_logging],
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
+            send_default_pii=SENTRY_SEND_PII,
+            environment=SENTRY_ENVIRONMENT,
+        )
+    except Exception:
+        # Мониторинг не должен ломать запуск приложения.
+        pass
+# Admin notification
+ADMIN_TELEGRAM_ID = env('ADMIN_TELEGRAM_ID', default='')
+
+# Social Autoposting (R3-S3)
+VK_API_ACCESS_TOKEN = env('VK_API_ACCESS_TOKEN', default='')
+VK_GROUP_ID = env('VK_GROUP_ID', default='')
+TELEGRAM_CHANNEL_ID = env('TELEGRAM_CHANNEL_ID', default='')

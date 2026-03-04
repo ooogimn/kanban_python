@@ -46,6 +46,38 @@ class PlanCreateUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
+class RevenueByMonthItemSerializer(serializers.Serializer):
+    month = serializers.CharField(allow_null=True)
+    revenue = serializers.FloatField()
+    count = serializers.IntegerField()
+
+
+class RevenueByProviderItemSerializer(serializers.Serializer):
+    provider = serializers.CharField()
+    total = serializers.FloatField()
+    count = serializers.IntegerField()
+
+
+class RevenueByPlanItemSerializer(serializers.Serializer):
+    plan = serializers.CharField()
+    total = serializers.FloatField()
+    count = serializers.IntegerField()
+
+
+class SaasRevenueStatsSerializer(serializers.Serializer):
+    total_users = serializers.IntegerField()
+    active_workspaces = serializers.IntegerField()
+    mrr = serializers.CharField()
+    arr = serializers.CharField()
+    active_subscriptions = serializers.IntegerField()
+    trial_subscriptions = serializers.IntegerField()
+    churn_count = serializers.IntegerField()
+    registrations = serializers.JSONField()
+    revenue_by_month = RevenueByMonthItemSerializer(many=True)
+    revenue_by_provider = RevenueByProviderItemSerializer(many=True)
+    revenue_by_plan = RevenueByPlanItemSerializer(many=True)
+
+
 class SaasCategorySerializer(serializers.ModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True)
 
@@ -94,15 +126,17 @@ class SaasPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = [
-            'id', 'title', 'slug', 'excerpt', 'content', 'image', 'image_url',
+            'id', 'title', 'slug', 'excerpt', 'content',
+            'meta_title', 'meta_description', 'canonical_url', 'og_image',
+            'image', 'image_url',
             'video', 'video_url', 'main_media_autoplay',
             'category', 'category_name', 'tag_ids',
             'is_published', 'published_at', 'views_count', 'created_at', 'updated_at',
         ]
+        read_only_fields = ['views_count', 'created_at', 'updated_at']
 
     def get_tag_ids(self, obj):
         return list(obj.tags.values_list('id', flat=True))
-        read_only_fields = ['views_count', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         tag_ids = self.initial_data.get('tag_ids') if isinstance(self.initial_data, dict) else None

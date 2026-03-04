@@ -1,6 +1,7 @@
 from django.urls import path, include
 from django.db import connection
 from django.core.cache import cache
+from celery import current_app as celery_current_app
 from config.routers import NoFormatSuffixRouter
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -49,8 +50,29 @@ def health_check(request):
     return Response(payload)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def celery_health_check(request):
+    """
+    Celery health check (опциональный, не блокирует общий health API).
+    """
+    payload = {'status': 'degraded', 'service': 'Office Suite 360 Celery'}
+    try:
+        inspector = celery_current_app.control.inspect(timeout=1.0)
+        ping = inspector.ping() if inspector else None
+        if ping:
+            payload['status'] = 'ok'
+            payload['workers'] = list(ping.keys())
+        else:
+            payload['detail'] = 'no_workers_or_unreachable'
+    except Exception:
+        payload['detail'] = 'inspect_failed'
+    return Response(payload, status=http_status.HTTP_200_OK)
+
+
 urlpatterns = [
     path('', health_check, name='health-check'),
+    path('celery/', celery_health_check, name='celery-health-check'),
     path('me/', profile_me, name='profile_me'),
     path('dashboard-stats/', DashboardStatsView.as_view(), name='dashboard-stats'),
     path('', include(router.urls)),

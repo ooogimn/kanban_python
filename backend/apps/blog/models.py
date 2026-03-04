@@ -57,6 +57,32 @@ class Post(models.Model):
         verbose_name=_('Content'),
         help_text=_('Main text (Markdown supported)'),
     )
+    meta_title = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        verbose_name=_('Meta title'),
+        help_text=_('SEO title for search engines (fallback: title)'),
+    )
+    meta_description = models.CharField(
+        max_length=320,
+        blank=True,
+        default='',
+        verbose_name=_('Meta description'),
+        help_text=_('SEO description for search snippets (fallback: excerpt)'),
+    )
+    canonical_url = models.URLField(
+        blank=True,
+        default='',
+        verbose_name=_('Canonical URL'),
+        help_text=_('Canonical URL for duplicate-content control'),
+    )
+    og_image = models.URLField(
+        blank=True,
+        default='',
+        verbose_name=_('OpenGraph image URL'),
+        help_text=_('Preferred social preview image URL'),
+    )
     image = models.ImageField(
         upload_to='blog/%Y/%m/',
         null=True,
@@ -101,6 +127,14 @@ class Post(models.Model):
     views_count = models.PositiveIntegerField(
         default=0,
         verbose_name=_('Views count'),
+    )
+    posted_to_telegram = models.BooleanField(
+        default=False,
+        verbose_name=_('Posted to Telegram'),
+    )
+    posted_to_vk = models.BooleanField(
+        default=False,
+        verbose_name=_('Posted to VK'),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

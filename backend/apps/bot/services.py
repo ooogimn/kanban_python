@@ -155,3 +155,14 @@ def send_telegram_message(
                 pass
 
     return True
+
+
+def send_admin_notification(text: str) -> bool:
+    """
+    Отправить сообщение администратору (ID из настроек).
+    """
+    admin_id = getattr(settings, 'ADMIN_TELEGRAM_ID', '')
+    if not admin_id:
+        return False
+    from .services_telegram import _send_via_api
+    return _send_via_api(admin_id, text)

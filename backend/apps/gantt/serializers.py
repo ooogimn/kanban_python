@@ -275,6 +275,13 @@ class TaskDependencySerializer(serializers.Serializer):
             type=dep_type,
             lag_days=lag_days,
         )
+        # Сразу выравниваем successor по новой связи и каскаду.
+        try:
+            from apps.gantt.services import recalculate_dates
+            recalculate_dates(pred_wi)
+        except Exception:
+            # Не блокируем создание зависимости при проблемах автопланирования.
+            pass
         # Сохраняем GanttTask в instance для надёжного to_representation (маппинг после создания)
         dep._pred_gt = validated_data.get('_pred_gt')
         dep._succ_gt = validated_data.get('_succ_gt')

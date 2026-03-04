@@ -233,6 +233,50 @@ class CommentViewSet(viewsets.ModelViewSet):
             )
         
         return queryset.select_related('author', 'parent', 'content_type').prefetch_related('replies')
+
+    @action(detail=False, methods=['get'])
+    def global_feed(self, request):
+        """
+        Лента всех комментариев в воркспейсах пользователя (Task 5.2).
+        Предназначена для боковой панели «Все комментарии».
+        """
+        user = request.user
+        if not user.is_authenticated:
+            return Response([], status=status.HTTP_200_OK)
+
+        # 1. Находим все воркспейсы пользователя
+        workspace_ids = list(
+            WorkspaceMember.objects.filter(user=user).values_list('workspace_id', flat=True)
+        )
+        if not workspace_ids:
+            return Response([], status=status.HTTP_200_OK)
+
+        # 2. Находим все проекты этих воркспейсов
+        project_ids = list(
+            Project.objects.filter(workspace_id__in=workspace_ids).values_list('id', flat=True)
+        )
+
+        # 3. Находим все задачи этих проектов
+        workitem_ids = list(
+            WorkItem.objects.filter(project_id__in=project_ids).values_list('id', flat=True)
+        )
+
+        # 4. Собираем комментарии к задачам и самим проектам
+        workitem_ct = ContentType.objects.get_for_model(WorkItem)
+        project_ct = ContentType.objects.get_for_model(Project)
+
+        queryset = Comment.objects.filter(
+            (Q(content_type=workitem_ct) & Q(object_id__in=workitem_ids)) |
+            (Q(content_type=project_ct) & Q(object_id__in=project_ids))
+        ).select_related('author', 'content_type').order_by('-created_at')
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = CommentThreadSerializer(page, many=True, context={'request': request})
+            return self.get_paginated_response(serializer.data)
+
+        serializer = CommentThreadSerializer(queryset, many=True, context={'request': request})
+        return Response(serializer.data)
     
     def perform_create(self, serializer):
         """Создание комментария."""

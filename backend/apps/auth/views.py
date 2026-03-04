@@ -15,7 +15,6 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.core.models import UserEvent, VerificationCode
@@ -24,6 +23,11 @@ from .services import (
     generate_verification_code, 
     get_verification_code_expiry,
     send_email_code
+)
+from .social_services import (
+    SocialProfile,
+    IdentityLinkingService,
+    build_auth_payload,
 )
 
 User = get_user_model()
@@ -109,47 +113,43 @@ def telegram_login(request):
     first_name = data.get('first_name') or ''
     last_name = data.get('last_name') or ''
     username = (data.get('username') or '').strip()
-    base_username = f"tg_{tg_id}"
-
-    user, created = User.objects.get_or_create(
-        telegram_id=tg_id,
-        defaults={
-            'username': base_username,
+    profile = SocialProfile(
+        provider='telegram',
+        provider_user_id=str(tg_id),
+        email=None,
+        email_verified=False,
+        first_name=first_name,
+        last_name=last_name,
+        username=username or f"tg_{tg_id}",
+        raw={
+            'id': tg_id,
             'first_name': first_name,
             'last_name': last_name,
-            'telegram_username': username or None,
-            'is_active': True,
-        }
+            'username': username,
+            'photo_url': data.get('photo_url'),
+            'auth_date': data.get('auth_date'),
+        },
     )
-    if not created:
-        updated = False
-        if user.first_name != first_name:
-            user.first_name = first_name
-            updated = True
-        if user.last_name != last_name:
-            user.last_name = last_name
-            updated = True
-        if user.telegram_username != (username or None):
-            user.telegram_username = username or None
-            updated = True
-        if updated:
-            user.save(update_fields=['first_name', 'last_name', 'telegram_username'])
-
-    refresh = RefreshToken.for_user(user)
-    groups = list(user.groups.values_list('name', flat=True))
-    return Response({
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'telegram_username': user.telegram_username,
-            'groups': groups,
-            'is_onboarded': getattr(user, 'is_onboarded', False),
-        }
-    }, status=status.HTTP_200_OK)
+    user, is_new = IdentityLinkingService.find_or_create_user_by_social(profile)
+    updated_fields = []
+    if user.telegram_id != tg_id:
+        user.telegram_id = tg_id
+        updated_fields.append('telegram_id')
+    if user.telegram_username != (username or None):
+        user.telegram_username = username or None
+        updated_fields.append('telegram_username')
+    if first_name and user.first_name != first_name:
+        user.first_name = first_name
+        updated_fields.append('first_name')
+    if last_name and user.last_name != last_name:
+        user.last_name = last_name
+        updated_fields.append('last_name')
+    if updated_fields:
+        user.save(update_fields=updated_fields)
+    return Response(
+        build_auth_payload(user, provider='telegram', is_new_user=is_new),
+        status=status.HTTP_200_OK,
+    )
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -237,23 +237,10 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         # Записываем событие входа для аналитики
         UserEvent.objects.create(user=authenticated_user, event_type=UserEvent.EVENT_LOGIN)
 
-        # Генерируем токены
-        refresh = RefreshToken.for_user(authenticated_user)
-        groups = list(authenticated_user.groups.values_list('name', flat=True))
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': authenticated_user.id,
-                'username': authenticated_user.username,
-                'email': authenticated_user.email or '',
-                'first_name': authenticated_user.first_name or '',
-                'last_name': authenticated_user.last_name or '',
-                'telegram_username': authenticated_user.telegram_username or '',
-                'groups': groups,
-                'is_onboarded': getattr(authenticated_user, 'is_onboarded', False),
-            }
-        }, status=status.HTTP_200_OK)
+        return Response(
+            build_auth_payload(authenticated_user, provider='password', is_new_user=False),
+            status=status.HTTP_200_OK,
+        )
 
 
 class CustomTokenRefreshView(TokenRefreshView):
@@ -410,22 +397,10 @@ def register(request):
                 logger.warning(f"Invite process_acceptance after register: {e}")
                 # Пользователь уже создан — не откатываем, просто не привязываем контакт
 
-        refresh = RefreshToken.for_user(user)
-        groups = list(user.groups.values_list('name', flat=True))
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'telegram_username': user.telegram_username,
-                'groups': groups,
-                'is_onboarded': getattr(user, 'is_onboarded', False),
-            }
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            build_auth_payload(user, provider='password', is_new_user=True),
+            status=status.HTTP_201_CREATED,
+        )
 
     except Exception as e:
         logger.exception(f'Error creating user: {e}')
@@ -526,23 +501,10 @@ def verify_code(request):
         verification_code.is_verified = True
         verification_code.save(update_fields=['is_verified'])
         
-        # Генерация JWT токенов
-        refresh = RefreshToken.for_user(user)
-        groups = list(user.groups.values_list('name', flat=True))
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'telegram_username': user.telegram_username,
-                'groups': groups,
-                'is_onboarded': getattr(user, 'is_onboarded', False),
-            }
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            build_auth_payload(user, provider='password', is_new_user=True),
+            status=status.HTTP_201_CREATED,
+        )
         
     except Exception as e:
         logger.exception(f'Error creating user: {e}')
@@ -639,6 +601,31 @@ def invite_token_info(request, token):
         'contact_name': name,
         'valid': True,
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def has_password(request):
+    """Проверить, установлен ли локальный пароль у текущего пользователя."""
+    user = request.user
+    has_pwd = bool(user.password) and user.has_usable_password()
+    return Response({'has_password': has_pwd}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def set_password(request):
+    """Установить/обновить пароль для текущего пользователя."""
+    new_password = (request.data or {}).get('new_password') if isinstance(request.data, dict) else None
+    if not new_password or len(str(new_password)) < 8:
+        return Response(
+            {'detail': 'Новый пароль должен содержать минимум 8 символов.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    user = request.user
+    user.set_password(str(new_password))
+    user.save(update_fields=['password'])
+    return Response({'detail': 'Пароль успешно установлен.'}, status=status.HTTP_200_OK)
 
 
 # Импорт функций для восстановления и смены пароля

@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 
 from apps.core.models import Workspace, WorkspaceMember
 from apps.billing.models import BillingAccount, PlanVersion, BillingSubscription, PaymentTransaction
+from apps.saas.models import Plan
 
 
 User = get_user_model()
@@ -124,3 +125,65 @@ class SaasRevenueDashboardApiTestCase(TestCase):
         self.assertEqual(body['revenue_by_month'], [])
         self.assertEqual(body['revenue_by_provider'], [])
         self.assertEqual(body['revenue_by_plan'], [])
+
+
+class SaasPlansApiTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username='plans_admin',
+            email='plans_admin@example.com',
+            password='pass12345',
+        )
+        self.client.force_authenticate(self.admin)
+
+    def test_only_one_default_plan_is_kept(self):
+        p1 = Plan.objects.create(
+            name='Starter',
+            price=Decimal('0'),
+            currency='RUB',
+            limits={},
+            is_active=True,
+            is_default=True,
+        )
+        p2 = Plan.objects.create(
+            name='Pro',
+            price=Decimal('999'),
+            currency='RUB',
+            limits={},
+            is_active=True,
+            is_default=False,
+        )
+
+        response = self.client.patch(
+            f'/api/v1/saas/plans/{p2.id}/',
+            {'is_default': True},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        p1.refresh_from_db()
+        p2.refresh_from_db()
+        self.assertFalse(p1.is_default)
+        self.assertTrue(p2.is_default)
+
+    def test_recommended_fields_are_normalized(self):
+        response = self.client.post(
+            '/api/v1/saas/plans/',
+            {
+                'name': 'Student',
+                'price': '490',
+                'currency': 'RUB',
+                'limits': {},
+                'is_active': True,
+                'is_default': False,
+                'is_recommended': True,
+                'recommended_badge': '',
+                'recommended_note': 'для студентов',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = response.json()
+        self.assertTrue(body['is_recommended'])
+        self.assertEqual(body['recommended_badge'], 'РЕКОМЕНДОВАН')
+        self.assertEqual(body['recommended_note'], 'для студентов')

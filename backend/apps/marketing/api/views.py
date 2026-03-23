@@ -52,7 +52,10 @@ def public_settings(request):
     plans = (
         Plan.objects.filter(is_active=True)
         .order_by('price', 'id')
-        .values('id', 'name', 'price', 'currency', 'limits', 'is_default')
+        .values(
+            'id', 'name', 'price', 'currency', 'limits', 'is_default',
+            'is_recommended', 'recommended_badge', 'recommended_note',
+        )
     )
     landing_plans = []
     for p in plans:
@@ -65,6 +68,9 @@ def public_settings(request):
                 'currency': p.get('currency') or 'RUB',
                 'limits': limits if isinstance(limits, dict) else {},
                 'is_default': bool(p.get('is_default')),
+                'is_recommended': bool(p.get('is_recommended')),
+                'recommended_badge': str(p.get('recommended_badge') or '').strip(),
+                'recommended_note': str(p.get('recommended_note') or '').strip(),
             }
         )
 

@@ -6,7 +6,7 @@
  * полями. Тарифы удобно редактировать без риска сломать JSON.
  * Архитектура: всё хранится как JSON в БД — лимиты можно менять в любой момент.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { saasApi, type SaasPlan, type SaasPlanCreateUpdate } from '../../api/saas';
 import { SEOMeta } from '../../components/SEOMeta';
@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 
 // ── Типизация лимитов ──────────────────────────────────────────────────────────
 interface PlanLimits {
-  max_system_contacts: number;   // 0 = без лимита
+  max_system_contacts: number;   // -1 = без лимита, 0 = запрещено
   max_ai_agents: number;
   max_users: number;             // пользователей в workspace
   max_projects: number;
@@ -66,15 +66,60 @@ function limitsFromPlan(plan: SaasPlan | null): PlanLimits {
   };
 }
 
+function formatLimitInput(value: number, allowDecimal: boolean): string {
+  if (value < 0) return '000';
+  if (allowDecimal) return String(value);
+  return String(Math.trunc(value));
+}
+
 // ── Компонент числового поля лимита ───────────────────────────────────────────
 function LimitField({
-  label, hint, value, onChange,
+  label, hint, value, onChange, allowDecimal = false,
 }: {
   label: string;
   hint?: string;
   value: number;
   onChange: (v: number) => void;
+  allowDecimal?: boolean;
 }) {
+  const [raw, setRaw] = useState(() => formatLimitInput(value, allowDecimal));
+  useEffect(() => {
+    setRaw(formatLimitInput(value, allowDecimal));
+  }, [value, allowDecimal]);
+
+  const normalize = (input: string) => input.trim().replace(',', '.');
+
+  const commit = (input: string) => {
+    const normalized = normalize(input);
+    if (!normalized) {
+      onChange(0);
+      return;
+    }
+    if (normalized === '000' || normalized === '∞') {
+      onChange(-1);
+      return;
+    }
+    const parsed = allowDecimal
+      ? Number.parseFloat(normalized)
+      : Number.parseInt(normalized, 10);
+    if (!Number.isFinite(parsed)) return;
+    if (allowDecimal) {
+      const rounded = Math.round(Math.max(0, parsed) * 10) / 10;
+      onChange(rounded);
+      return;
+    }
+    onChange(Math.max(0, Math.trunc(parsed)));
+  };
+
+  const handleChange = (nextRaw: string) => {
+    setRaw(nextRaw);
+    commit(nextRaw);
+  };
+
+  const handleBlur = () => {
+    setRaw(formatLimitInput(value, allowDecimal));
+  };
+
   return (
     <div>
       <label className="block text-xs font-medium text-slate-300 mb-1">
@@ -83,16 +128,18 @@ function LimitField({
       </label>
       <div className="flex items-center gap-2">
         <input
-          type="number"
-          min={0}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          type="text"
+          inputMode={allowDecimal ? 'decimal' : 'numeric'}
+          value={raw}
+          onChange={(e) => handleChange(e.target.value)}
+          onBlur={handleBlur}
           className="w-28 rounded-lg border border-slate-600 bg-slate-700/80 px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-red-500"
         />
-        {value === 0 && (
+        {value < 0 && (
           <span className="text-xs text-emerald-400 font-medium">∞ без лимита</span>
         )}
       </div>
+      <p className="mt-1 text-[11px] text-slate-500">000/∞ = без лимита</p>
     </div>
   );
 }
@@ -141,6 +188,9 @@ function PlanModal({
   const [billingPeriod, setBillingPeriod] = useState<'month' | 'year'>('month');
   const [isActive, setIsActive] = useState(plan?.is_active ?? true);
   const [isDefault, setIsDefault] = useState(plan?.is_default ?? false);
+  const [isRecommended, setIsRecommended] = useState(plan?.is_recommended ?? false);
+  const [recommendedBadge, setRecommendedBadge] = useState(plan?.recommended_badge ?? 'РЕКОМЕНДОВАН');
+  const [recommendedNote, setRecommendedNote] = useState(plan?.recommended_note ?? '');
   const [description, setDescription] = useState(
     String((plan?.limits as Record<string, unknown>)?.description ?? '')
   );
@@ -170,6 +220,9 @@ function PlanModal({
     },
     is_active: isActive,
     is_default: isDefault,
+    is_recommended: isRecommended,
+    recommended_badge: isRecommended ? (recommendedBadge.trim() || 'РЕКОМЕНДОВАН') : '',
+    recommended_note: isRecommended ? recommendedNote.trim() : '',
   });
 
   const createMutation = useMutation({
@@ -307,7 +360,7 @@ function PlanModal({
             <section>
               <h3 className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-3">
                 Лимиты ресурсов
-                <span className="ml-2 text-slate-500 normal-case font-normal text-xs">0 = без лимита (Enterprise)</span>
+                <span className="ml-2 text-slate-500 normal-case font-normal text-xs">000/∞ = без лимита</span>
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <LimitField
@@ -334,6 +387,7 @@ function PlanModal({
                   label="Хранилище"
                   hint="(ГБ)"
                   value={limits.storage_gb}
+                  allowDecimal
                   onChange={(v) => setLimit('storage_gb', v)}
                 />
               </div>
@@ -379,7 +433,8 @@ function PlanModal({
             </section>
 
             {/* ── Секция 4: Статус ── */}
-            <section className="flex flex-wrap gap-4">
+            <section className="space-y-4">
+              <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -398,6 +453,48 @@ function PlanModal({
                 />
                 <span className="text-sm text-slate-200">По умолчанию (для новых пользователей)</span>
               </label>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isRecommended}
+                  onChange={(e) => setIsRecommended(e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500"
+                />
+                <span className="text-sm text-slate-200">Маркетинговая отметка (рекомендуемый)</span>
+              </label>
+              </div>
+              <p className="text-xs text-slate-500">
+                План по умолчанию может быть только один. При сохранении система автоматически снимет этот флаг у остальных.
+              </p>
+
+              {isRecommended && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Текст бейджа
+                    </label>
+                    <input
+                      type="text"
+                      value={recommendedBadge}
+                      onChange={(e) => setRecommendedBadge(e.target.value)}
+                      placeholder="РЕКОМЕНДОВАН / ЗВЕЗДА / MEDAL"
+                      className="w-full rounded-lg border border-slate-600 bg-slate-700/80 px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Доп. подпись
+                    </label>
+                    <input
+                      type="text"
+                      value={recommendedNote}
+                      onChange={(e) => setRecommendedNote(e.target.value)}
+                      placeholder="для студентов / для торговли / для старта"
+                      className="w-full rounded-lg border border-slate-600 bg-slate-700/80 px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              )}
             </section>
 
           </div>
@@ -461,9 +558,17 @@ function PlanRow({
               по умолч.
             </span>
           )}
+          {plan.is_recommended && (
+            <span className="px-1.5 py-0.5 rounded text-xs bg-amber-500/20 text-amber-300 border border-amber-400/40">
+              {plan.recommended_badge || 'РЕКОМЕНДОВАН'}
+            </span>
+          )}
         </div>
         {description && (
           <p className="text-xs text-slate-500 mt-0.5 ml-4">{description}</p>
+        )}
+        {plan.is_recommended && plan.recommended_note && (
+          <p className="text-xs text-amber-300/80 mt-0.5 ml-4">{plan.recommended_note}</p>
         )}
       </td>
       <td className="px-4 py-3 text-right tabular-nums">
@@ -475,15 +580,21 @@ function PlanRow({
       <td className="px-4 py-3 text-slate-300 text-sm tabular-nums">
         <div className="flex flex-wrap gap-1 text-xs text-slate-400">
           {Number(l.max_users) === 0
+            ? <span>👤 0</span>
+            : Number(l.max_users) < 0
             ? <span>👤 ∞</span>
             : <span>👤 {l.max_users}</span>}
           {Number(l.max_projects) === 0
+            ? <span>📁 0</span>
+            : Number(l.max_projects) < 0
             ? <span>📁 ∞</span>
             : <span>📁 {l.max_projects}</span>}
           {Number(l.max_ai_agents) === 0
+            ? <span>🤖 0</span>
+            : Number(l.max_ai_agents) < 0
             ? <span>🤖 ∞</span>
             : <span>🤖 {l.max_ai_agents}</span>}
-          <span>💾 {Number(l.storage_gb) === 0 ? '∞' : l.storage_gb} ГБ</span>
+          <span>💾 {Number(l.storage_gb) < 0 ? '∞' : l.storage_gb} ГБ</span>
         </div>
       </td>
       <td className="px-4 py-3">
@@ -566,7 +677,7 @@ export default function SaasPlansPage() {
         <p className="text-xs text-amber-200/80 leading-relaxed">
           Тарифная матрица гибкая — вы можете изменить цены, лимиты и функции в любой момент.
           Изменения применяются сразу и не влияют на уже оформленные подписки до следующего продления.
-          Значение <strong className="text-amber-300">0</strong> в числовых лимитах = без ограничений.
+          Значение <strong className="text-amber-300">000/∞</strong> в поле лимита = без ограничений.
         </p>
       </div>
 

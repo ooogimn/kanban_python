@@ -8,6 +8,7 @@ import os
 import uuid
 
 from django.db.models import Count, Sum, F, Value
+from django.db import transaction
 from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.db.models.functions import TruncMonth
@@ -202,6 +203,35 @@ class SaasPlanViewSet(viewsets.ModelViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return PlanCreateUpdateSerializer
         return PlanSerializer
+
+    def _ensure_single_default_plan(self, preferred_plan=None):
+        defaults = list(Plan.objects.filter(is_default=True).order_by('id'))
+        if preferred_plan and preferred_plan.is_default:
+            Plan.objects.filter(is_default=True).exclude(pk=preferred_plan.pk).update(is_default=False)
+            return
+        if len(defaults) > 1:
+            keep = defaults[0]
+            Plan.objects.filter(is_default=True).exclude(pk=keep.pk).update(is_default=False)
+            return
+        if len(defaults) == 0:
+            candidate = preferred_plan or Plan.objects.order_by('id').first()
+            if candidate and not candidate.is_default:
+                Plan.objects.filter(pk=candidate.pk).update(is_default=True)
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            plan = serializer.save()
+            self._ensure_single_default_plan(preferred_plan=plan)
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            plan = serializer.save()
+            self._ensure_single_default_plan(preferred_plan=plan)
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            super().perform_destroy(instance)
+            self._ensure_single_default_plan(preferred_plan=None)
 
 
 class SaasUserViewSet(viewsets.ViewSet):

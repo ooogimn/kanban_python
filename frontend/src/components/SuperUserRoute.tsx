@@ -11,7 +11,9 @@ export default function SuperUserRoute({ children }: { children: React.ReactNode
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => authApi.getProfile(),
+    // Для SaaS Admin всегда валидируем роль с сервера.
     enabled: !!user && isAuthenticated,
+    retry: 0,
   });
 
   if (!isAuthenticated) {
@@ -26,7 +28,8 @@ export default function SuperUserRoute({ children }: { children: React.ReactNode
     );
   }
 
-  if (!profile?.is_superuser) {
+  const isSuperuser = profile?.is_superuser === true;
+  if (!isSuperuser) {
     return <Navigate to="/dashboard" replace />;
   }
 

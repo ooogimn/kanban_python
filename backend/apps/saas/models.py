@@ -55,6 +55,25 @@ class Plan(models.Model):
         verbose_name=_('Default plan'),
         help_text=_('План по умолчанию для новых подписок'),
     )
+    is_recommended = models.BooleanField(
+        default=False,
+        verbose_name=_('Recommended plan'),
+        help_text=_('Маркетинговая отметка для лендинга и карточек тарифов'),
+    )
+    recommended_badge = models.CharField(
+        max_length=64,
+        blank=True,
+        default='',
+        verbose_name=_('Recommended badge'),
+        help_text=_('Короткая подпись бейджа, например: РЕКОМЕНДОВАН, ЗВЕЗДА, MEDAL'),
+    )
+    recommended_note = models.CharField(
+        max_length=160,
+        blank=True,
+        default='',
+        verbose_name=_('Recommended note'),
+        help_text=_('Дополнительный текст под бейджем, например: для студентов'),
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('Created at'),

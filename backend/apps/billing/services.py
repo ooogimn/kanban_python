@@ -92,8 +92,8 @@ class SubscriptionService:
             limit = int(limit)
         except (TypeError, ValueError):
             return True
-        if limit == 0:
-            return True  # 0 = без лимита (enterprise / superuser)
+        if limit < 0:
+            return True  # отрицательное значение = без лимита
         if current_value is not None:
             return current_value < limit
         # Считаем текущее значение по метрике
@@ -421,6 +421,8 @@ class UsageService:
             total_used += used
             raw_limit = limits.get(code, limits.get(f'max_{code}'))
             included = cls._safe_decimal(raw_limit) if raw_limit is not None else None
+            if included is not None and included < 0:
+                included = None
             remaining = None if included is None else included - used
             overage = Decimal('0') if included is None else max(Decimal('0'), used - included)
             total_overage += overage

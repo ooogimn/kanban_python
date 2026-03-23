@@ -33,18 +33,78 @@ class PlanSerializer(serializers.ModelSerializer):
         model = Plan
         fields = [
             'id', 'name', 'price', 'currency', 'limits',
-            'is_active', 'is_default', 'created_at', 'updated_at',
+            'is_active', 'is_default', 'is_recommended',
+            'recommended_badge', 'recommended_note',
+            'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
 
 
 class PlanCreateUpdateSerializer(serializers.ModelSerializer):
+    LIMIT_KEYS = (
+        'max_system_contacts',
+        'max_ai_agents',
+        'max_users',
+        'max_projects',
+        'storage_gb',
+    )
+
     class Meta:
         model = Plan
         fields = [
             'name', 'price', 'currency', 'limits',
-            'is_active', 'is_default',
+            'is_active', 'is_default', 'is_recommended',
+            'recommended_badge', 'recommended_note',
         ]
+
+    def validate_limits(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('limits должен быть объектом.')
+        limits = dict(value)
+        for key in self.LIMIT_KEYS:
+            if key not in limits:
+                continue
+            raw = limits.get(key)
+            try:
+                num = float(raw)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError({key: 'Значение лимита должно быть числом.'})
+            if num < -1:
+                raise serializers.ValidationError({key: 'Минимально допустимое значение: -1 (безлимит).'})
+            # Для всех лимитов кроме storage_gb сохраняем целые числа.
+            if key != 'storage_gb':
+                limits[key] = int(num)
+            else:
+                limits[key] = round(num, 1)
+        return limits
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        current_recommended = bool(getattr(self.instance, 'is_recommended', False))
+        current_badge = str(getattr(self.instance, 'recommended_badge', '') or '').strip()
+        current_note = str(getattr(self.instance, 'recommended_note', '') or '').strip()
+
+        is_recommended = attrs.get('is_recommended')
+        if is_recommended is None:
+            is_recommended = current_recommended
+
+        if 'recommended_badge' in attrs:
+            badge = str(attrs.get('recommended_badge', '')).strip()
+        else:
+            badge = current_badge
+
+        if 'recommended_note' in attrs:
+            note = str(attrs.get('recommended_note', '')).strip()
+        else:
+            note = current_note
+
+        if is_recommended:
+            attrs['recommended_badge'] = badge or 'РЕКОМЕНДОВАН'
+            attrs['recommended_note'] = note
+        else:
+            attrs['recommended_badge'] = ''
+            attrs['recommended_note'] = ''
+        return attrs
 
 
 class RevenueByMonthItemSerializer(serializers.Serializer):

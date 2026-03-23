@@ -26,6 +26,9 @@ export interface SaasPlan {
   limits: Record<string, unknown>;
   is_active: boolean;
   is_default: boolean;
+  is_recommended: boolean;
+  recommended_badge?: string;
+  recommended_note?: string;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +40,9 @@ export interface SaasPlanCreateUpdate {
   limits: Record<string, unknown>;
   is_active?: boolean;
   is_default?: boolean;
+  is_recommended?: boolean;
+  recommended_badge?: string;
+  recommended_note?: string;
 }
 
 export interface SaasUserListItem {

@@ -199,7 +199,7 @@ function SubscriptionCard({ account }: { account: MyAccount }) {
 
 // ── Прогресс использования ────────────────────────────────────────────────────
 function UsageBar({ label, used, limit, unit }: { label: string; used: number; limit: number; unit?: string }) {
-    const unlimited = limit === 0;
+    const unlimited = limit < 0;
     const pct = unlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
     const danger = !unlimited && pct >= 90;
     const warn = !unlimited && pct >= 70;

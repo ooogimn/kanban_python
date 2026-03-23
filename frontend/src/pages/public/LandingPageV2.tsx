@@ -102,10 +102,10 @@ function extractPlanFeatures(limits: Record<string, unknown>): string[] {
   const storage = Number(limits.storage_gb ?? 0);
   const description = typeof limits.description === 'string' ? limits.description.trim() : '';
 
-  features.push(maxUsers > 0 ? `до ${maxUsers} пользователей` : 'пользователи без лимита');
-  features.push(maxProjects > 0 ? `до ${maxProjects} проектов` : 'проекты без лимита');
-  if (maxAi > 0) features.push(`до ${maxAi} AI-агентов`);
-  if (storage > 0) features.push(`хранилище ${storage} ГБ`);
+  features.push(maxUsers < 0 ? 'пользователи без лимита' : `до ${maxUsers} пользователей`);
+  features.push(maxProjects < 0 ? 'проекты без лимита' : `до ${maxProjects} проектов`);
+  if (maxAi !== 0) features.push(maxAi < 0 ? 'AI-агенты без лимита' : `до ${maxAi} AI-агентов`);
+  if (storage !== 0) features.push(storage < 0 ? 'хранилище без лимита' : `хранилище ${storage} ГБ`);
   if (description) features.push(description);
   return features.slice(0, 4);
 }
@@ -691,7 +691,7 @@ export default function LandingPageV2() {
           <div className="flex flex-wrap justify-center gap-4">
             {landingPlans.map((plan) => {
               const features = extractPlanFeatures(plan.limits || {});
-              const styleCfg = planStyles.get(plan.name) || (plan.is_default
+              const styleCfg = planStyles.get(plan.name) || (plan.is_recommended
                 ? { border_color: '#ef4444', glow_color: '#f43f5e' }
                 : { border_color: '#67e8f9', glow_color: '#22d3ee' });
               return (
@@ -704,8 +704,17 @@ export default function LandingPageV2() {
                     boxShadow: `0 0 28px ${hexToRgba(styleCfg.glow_color, 0.5)}, 0 0 64px ${hexToRgba(styleCfg.glow_color, 0.24)}`,
                   }}
                 >
+                  {plan.is_recommended && (
+                    <div className="mb-2 inline-flex items-center rounded-full border border-amber-300/50 bg-amber-500/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-200">
+                      {String(plan.recommended_badge || 'Рекомендуем')}
+                    </div>
+                  )}
                   <h3 className="text-xl font-semibold">{plan.name}</h3>
-                  <p className="text-slate-300 mt-1">{plan.is_default ? 'Рекомендуемый план' : 'Тариф для вашего этапа роста'}</p>
+                  <p className="text-slate-300 mt-1">
+                    {plan.is_recommended
+                      ? (String(plan.recommended_note || '').trim() || 'Рекомендуемый план')
+                      : 'Тариф для вашего этапа роста'}
+                  </p>
                   <p className="text-3xl font-bold mt-4">{formatPlanPrice(plan.price, plan.currency)}</p>
                   <ul className="mt-4 text-sm text-slate-200 space-y-1">
                     {features.length ? (

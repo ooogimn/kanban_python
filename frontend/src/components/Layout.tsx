@@ -107,6 +107,7 @@ export default function Layout({ overrideContent }: LayoutProps = {}) {
   });
   // plan_badge — новое поле R1-S4 от Cursor AI (напр. 'PRO'), fallback на plan.name
   const currentPlanName = accountData?.plan_badge ?? accountData?.plan?.name ?? null;
+  const isSuperuser = profile?.is_superuser === true;
 
   // Синхронизация темы с DOM при монтировании (на случай гонки с гидрацией persist)
   useEffect(() => {
@@ -267,7 +268,7 @@ export default function Layout({ overrideContent }: LayoutProps = {}) {
               {isDark ? '☀️' : '🌙'}
             </button>
             <div className="h-8 w-px bg-slate-200 dark:bg-slate-600 hidden sm:block" />
-            {profile?.is_superuser && (
+            {isSuperuser && (
               <Link
                 to="/saas-admin"
                 className="text-sm font-medium text-red-400 hover:text-red-300 hidden sm:inline"

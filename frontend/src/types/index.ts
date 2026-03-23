@@ -24,6 +24,9 @@ export interface User {
   personal_workspace_id?: number | null;
   /** Личный проект в личном пространстве */
   personal_project_id?: number | null;
+  /** Флаги админ-доступа, приходят с backend UserSerializer */
+  is_superuser?: boolean;
+  is_staff?: boolean;
 }
 
 /** Данные профиля для GET/PATCH /auth/me/ */

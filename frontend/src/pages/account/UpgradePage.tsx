@@ -33,7 +33,7 @@ const FEATURE_LABELS: Record<string, string> = {
 
 function fmtLimit(v: number | undefined): string {
     if (v === undefined) return '—';
-    return v === 0 ? '∞' : v.toLocaleString('ru-RU');
+    return v < 0 ? '∞' : v.toLocaleString('ru-RU');
 }
 
 function fmtPrice(plan: PlanInfo): string {
@@ -46,14 +46,16 @@ function fmtPrice(plan: PlanInfo): string {
 // ПЛАНЫ НА СЛУЧАЙ ЕСЛИ API ВЕРНЁТ ПУСТОЙ СПИСОК
 const FALLBACK_PLANS: PlanInfo[] = [
     {
-        id: 0, name: 'Free', price: '0', currency: 'RUB', is_active: true,
+        id: 0, name: 'Free', price: '0', currency: 'RUB', is_active: true, is_default: true,
         limits: {
             max_users: 1, max_projects: 3, max_system_contacts: 10, max_ai_agents: 1, storage_gb: 1,
             features: {}
         },
     },
     {
-        id: 1, name: 'Pro', price: '990', currency: 'RUB', is_active: true,
+        id: 1, name: 'Pro', price: '990', currency: 'RUB', is_active: true, is_recommended: true,
+        recommended_badge: 'РЕКОМЕНДОВАН',
+        recommended_note: 'для малого бизнеса',
         limits: {
             max_users: 5, max_projects: 20, max_system_contacts: 200, max_ai_agents: 3, storage_gb: 10,
             features: { hr: true, payroll: true, finance_analytics: true, gantt: true }
@@ -109,6 +111,16 @@ function PlanCard({
 
             {/* Заголовок */}
             <div className="mb-4">
+                {plan.is_recommended && (
+                    <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                            {plan.recommended_badge || 'Рекомендуем'}
+                        </span>
+                        {plan.recommended_note && (
+                            <span className="text-[11px] text-amber-200/90">{plan.recommended_note}</span>
+                        )}
+                    </div>
+                )}
                 <p className="text-[clamp(10px,1.2vw,12px)] font-semibold text-slate-400 uppercase tracking-widest mb-1 break-words">
                     {plan.name}
                 </p>
@@ -143,7 +155,7 @@ function PlanCard({
                 <li className="flex justify-between">
                     <span className="text-slate-500">Хранилище</span>
                     <span className="font-medium text-slate-200">
-                        {l.storage_gb === 0 ? '∞' : `${l.storage_gb ?? 1} ГБ`}
+                        {typeof l.storage_gb === 'number' && l.storage_gb < 0 ? '∞' : `${l.storage_gb ?? 1} ГБ`}
                     </span>
                 </li>
             </ul>

@@ -73,6 +73,10 @@ export interface PlanInfo {
     currency: string;
     limits: Record<string, unknown>;
     is_active: boolean;
+    is_default?: boolean;
+    is_recommended?: boolean;
+    recommended_badge?: string;
+    recommended_note?: string;
     description?: string;
     billing_period?: 'month' | 'year';
 }
@@ -115,7 +119,7 @@ export interface UsageMeter {
     key: string;           // напр. "system_contacts", "ai_agents", "storage_gb"
     label: string;         // напр. "CRM-контакты"
     used: number;
-    limit: number;         // 0 = без лимита
+    limit: number;         // < 0 = без лимита
     unit?: string;         // напр. "ГБ", "шт."
     pct?: number;          // процент использования 0-100
 }

@@ -80,6 +80,9 @@ export interface PublicMarketingSettings {
     currency: string;
     limits: Record<string, unknown>;
     is_default: boolean;
+    is_recommended?: boolean;
+    recommended_badge?: string;
+    recommended_note?: string;
   }>;
 }
 

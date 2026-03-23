@@ -22,8 +22,19 @@ function getDjangoAdminUrl(): string {
       const u = new URL(apiUrl);
       return `${u.origin}/admin/`;
     } catch {
-      return '/admin/';
+      // Relative API URL (e.g. /api/v1): resolve by current host.
     }
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    const protocol = window.location.protocol;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return `${protocol}//${host}:8000/admin/`;
+    }
+    if (host === 'antexpress.ru' || host === 'www.antexpress.ru') {
+      return 'https://api.antexpress.ru/admin/';
+    }
+    return `${window.location.origin}/admin/`;
   }
   return '/admin/';
 }

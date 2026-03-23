@@ -77,8 +77,15 @@ export const authApi = {
   },
 
   getSocialProviders: async (): Promise<Record<SocialProvider, boolean>> => {
-    const response = await api.get<{ providers: Record<SocialProvider, boolean> }>('/auth/social/providers/');
-    return response.data.providers;
+    const response = await api.get('/auth/social/providers/');
+    const src = (response.data?.providers ?? response.data ?? {}) as Partial<Record<SocialProvider, unknown>>;
+    return {
+      google: Boolean(src.google),
+      yandex: Boolean(src.yandex),
+      telegram: Boolean(src.telegram),
+      vk: Boolean(src.vk),
+      mail: Boolean(src.mail),
+    };
   },
 
   getSocialStartUrl: async (provider: SocialProvider, nextPath: '/login' | '/register' = '/login'): Promise<{ auth_url: string }> => {

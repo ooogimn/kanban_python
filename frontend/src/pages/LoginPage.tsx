@@ -48,7 +48,16 @@ export default function LoginPage() {
     (async () => {
       try {
         const providers = await authApi.getSocialProviders();
-        if (!cancelled) setSocialProviders(providers);
+        if (!cancelled) {
+          setSocialProviders((prev) => ({
+            ...prev,
+            google: Boolean(providers?.google),
+            yandex: Boolean(providers?.yandex),
+            telegram: Boolean(providers?.telegram || TELEGRAM_BOT_USERNAME),
+            vk: Boolean(providers?.vk),
+            mail: Boolean(providers?.mail),
+          }));
+        }
       } catch {
         // ignore: fallback to env-based Telegram only
       }

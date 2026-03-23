@@ -109,15 +109,21 @@ function PlanCard({
 
             {/* Заголовок */}
             <div className="mb-4">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">{plan.name}</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-[clamp(10px,1.2vw,12px)] font-semibold text-slate-400 uppercase tracking-widest mb-1 break-words">
+                    {plan.name}
+                </p>
+                <p className="text-[clamp(20px,2.2vw,30px)] leading-tight font-bold text-white break-words">
                     {isEnterprise && plan.price === '0' ? 'Договорная' : fmtPrice(plan)}
                 </p>
-                {l.description && <p className="text-xs text-slate-500 mt-1">{l.description}</p>}
+                {l.description && (
+                    <p className="text-[clamp(11px,1.2vw,12px)] leading-snug text-slate-500 mt-1 break-words">
+                        {l.description}
+                    </p>
+                )}
             </div>
 
             {/* Лимиты */}
-            <ul className="space-y-1.5 text-sm text-slate-300 mb-4 flex-1">
+            <ul className="space-y-1.5 text-[clamp(12px,1.3vw,14px)] text-slate-300 mb-4 flex-1">
                 <li className="flex justify-between">
                     <span className="text-slate-500">Пользователи</span>
                     <span className="font-medium text-slate-200">{fmtLimit(l.max_users)}</span>
@@ -147,7 +153,7 @@ function PlanCard({
                 <div className="mb-4 pt-3 border-t border-white/5">
                     <ul className="space-y-1">
                         {enabledFeatures.map(([k, label]) => (
-                            <li key={k} className="flex items-center gap-2 text-xs text-slate-300">
+                            <li key={k} className="flex items-center gap-2 text-[clamp(11px,1.1vw,12px)] leading-snug text-slate-300 break-words">
                                 <span className="text-emerald-400">✓</span> {label}
                             </li>
                         ))}
@@ -159,7 +165,7 @@ function PlanCard({
             {isEnterprise ? (
                 <a
                     href={`mailto:${COMPANY.email}?subject=Enterprise тариф`}
-                    className="mt-auto block text-center px-4 py-2.5 rounded-xl border border-slate-500 text-slate-300 text-sm hover:bg-slate-700 transition-colors"
+                    className="mt-auto block text-center px-4 py-2.5 rounded-xl border border-slate-500 text-slate-300 text-[clamp(12px,1.3vw,14px)] hover:bg-slate-700 transition-colors"
                 >
                     Написать нам
                 </a>
@@ -167,7 +173,7 @@ function PlanCard({
                 <button
                     type="button"
                     disabled
-                    className="mt-auto block w-full text-center px-4 py-2.5 rounded-xl bg-slate-700/50 text-slate-500 text-sm cursor-not-allowed"
+                    className="mt-auto block w-full text-center px-4 py-2.5 rounded-xl bg-slate-700/50 text-slate-500 text-[clamp(12px,1.3vw,14px)] cursor-not-allowed"
                 >
                     Текущий тариф
                 </button>
@@ -175,7 +181,7 @@ function PlanCard({
                 <button
                     type="button"
                     disabled
-                    className="mt-auto block w-full text-center px-4 py-2.5 rounded-xl bg-slate-700/30 text-slate-500 text-sm cursor-not-allowed"
+                    className="mt-auto block w-full text-center px-4 py-2.5 rounded-xl bg-slate-700/30 text-slate-500 text-[clamp(12px,1.3vw,14px)] cursor-not-allowed"
                 >
                     Базовый
                 </button>
@@ -185,7 +191,7 @@ function PlanCard({
                     type="button"
                     disabled={isLoading}
                     onClick={() => onSelect(plan.id)}
-                    className="mt-auto block w-full text-center px-4 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-500 transition-colors disabled:opacity-60 disabled:cursor-wait"
+                    className="mt-auto block w-full text-center px-4 py-2.5 rounded-xl bg-red-600 text-white text-[clamp(12px,1.3vw,14px)] font-medium hover:bg-red-500 transition-colors disabled:opacity-60 disabled:cursor-wait"
                 >
                     {isLoading ? (
                         <span className="inline-flex items-center gap-2">
@@ -286,13 +292,13 @@ export default function UpgradePage() {
 
             {/* Сетка тарифов */}
             {isLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-4">
                     {[1, 2, 3, 4].map((i) => (
                         <div key={i} className="h-72 rounded-2xl bg-slate-700/40 animate-pulse" />
                     ))}
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-4">
                     {plans.filter((p) => p.is_active || p.id === 0).map((plan) => (
                         <PlanCard
                             key={plan.id}
@@ -310,7 +316,7 @@ export default function UpgradePage() {
                 <h2 className="text-sm font-semibold text-white uppercase tracking-widest mb-3">
                     Дополнительные услуги
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3">
                     {[
                         { icon: '🤖', name: 'Доп. ИИ-агент', price: '499 ₽/мес', desc: 'Дополнительный агент для задач' },
                         { icon: '💾', name: 'Доп. хранилище', price: '99 ₽/мес', desc: '+10 ГБ к текущему тарифу' },
@@ -320,17 +326,17 @@ export default function UpgradePage() {
                     ].map((addon) => (
                         <div
                             key={addon.name}
-                            className="flex justify-between items-start p-4 rounded-xl border border-white/10 bg-white/5"
+                            className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 p-4 rounded-xl border border-white/10 bg-white/5 min-w-0 overflow-hidden"
                         >
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 min-w-0 flex-1">
                                 <span className="text-xl">{addon.icon}</span>
-                                <div>
-                                    <p className="text-sm font-medium text-white">{addon.name}</p>
-                                    <p className="text-xs text-slate-500">{addon.desc}</p>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-white break-words">{addon.name}</p>
+                                    <p className="text-xs text-slate-500 break-words">{addon.desc}</p>
                                 </div>
                             </div>
-                            <div className="text-right shrink-0 ml-2">
-                                <p className="text-sm font-semibold text-slate-200 whitespace-nowrap">{addon.price}</p>
+                            <div className="text-left sm:text-right sm:shrink-0 sm:ml-2">
+                                <p className="text-sm font-semibold text-slate-200 break-words sm:whitespace-nowrap">{addon.price}</p>
                                 <button
                                     type="button"
                                     onClick={() => alert(`Подключение: ${addon.name} (в разработке)`)}

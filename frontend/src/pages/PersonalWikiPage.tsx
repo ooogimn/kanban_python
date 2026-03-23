@@ -194,7 +194,7 @@ export default function PersonalWikiPage() {
             <WikiPageEditor
               page={page}
               rootPage={rootId != null ? (id === rootId ? page ?? undefined : rootPageData) : undefined}
-              onSave={(updated) => {
+              onSave={() => {
                 queryClient.invalidateQueries({ queryKey: ['wiki-page', id] });
                 queryClient.invalidateQueries({ queryKey: ['wiki-tree', 'personal'] });
                 setIsEditing(false);

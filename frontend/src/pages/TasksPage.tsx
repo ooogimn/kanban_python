@@ -3,7 +3,6 @@ import { useQuery, useInfiniteQuery, useQueryClient, useMutation } from '@tansta
 import { useSearchParams } from 'react-router-dom';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
 import { timetrackingApi } from '../api/timetracking';
@@ -13,6 +12,7 @@ import TaskModal from '../components/TaskModal';
 import { TaskDetailModal } from './KanbanPage';
 import toast from 'react-hot-toast';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
+import { downloadCsv } from '../utils/exportCsv';
 
 type ViewMode = 'list' | 'grid';
 
@@ -381,12 +381,8 @@ export default function TasksPage() {
         'project_name' in t ? (t as WorkItem & { project_name?: string }).project_name ?? '' : '',
       ]),
     ];
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 20 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Задачи');
-    XLSX.writeFile(wb, `tasks-${Date.now()}.xlsx`);
-    toast.success('Сохранено в Excel');
+    downloadCsv(`tasks-${Date.now()}.csv`, rows);
+    toast.success('Сохранено в CSV');
   }, [tasks]);
 
   return (

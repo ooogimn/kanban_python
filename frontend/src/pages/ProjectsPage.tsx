@@ -3,7 +3,6 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
@@ -11,6 +10,7 @@ import { Project } from '../types';
 import { Link } from 'react-router-dom';
 import ProjectModal from '../components/ProjectModal';
 import toast from 'react-hot-toast';
+import { downloadCsv } from '../utils/exportCsv';
 
 function getNextPageParam(nextUrl: string | null | undefined): number | undefined {
   if (!nextUrl) return undefined;
@@ -89,12 +89,8 @@ export default function ProjectsPage() {
   const handleExportExcel = useCallback(() => {
     const rows: (string | number)[][] = [['Название', 'Статус', 'Начало', 'Конец']];
     allProjects.forEach((p: Project) => rows.push([p.name ?? '', p.status ?? '', p.start_date ?? '', p.end_date ?? '']));
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 12 }, { wch: 12 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Проекты');
-    XLSX.writeFile(wb, `projects-${Date.now()}.xlsx`);
-    toast.success('Сохранено в Excel');
+    downloadCsv(`projects-${Date.now()}.csv`, rows);
+    toast.success('Сохранено в CSV');
   }, [allProjects]);
   const handleFullscreen = useCallback(() => {
     if (!pageRef.current) return;

@@ -281,6 +281,8 @@ export default function NodeSettingsSidebar() {
     );
   }
 
+  if (!selectedNode) return null;
+
   const id = selectedNode.id;
   const data = selectedNode.data ?? {};
   const update = (patch: Partial<CyberNodeData>) => updateNodeData(id, patch);
@@ -300,7 +302,6 @@ export default function NodeSettingsSidebar() {
   const rotation = data.rotation ?? 0;
   const labelFontSize = data.labelFontSize ?? DEFAULT_LABEL_FONT_SIZE;
   const bottomTextFontSize = data.bottomTextFontSize ?? 12;
-  const linkFontSize = data.linkFontSize ?? 14;
 
   const submitImageUrl = () => {
     const url = imageInputValue.trim();

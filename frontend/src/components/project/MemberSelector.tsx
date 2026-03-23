@@ -16,7 +16,9 @@ interface MemberSelectorProps {
   membersFromProject?: ProjectMember[];
 }
 
-function contactDisplayName(c: Contact): string {
+type ContactLike = Pick<Contact, 'id' | 'first_name' | 'last_name' | 'email'>;
+
+function contactDisplayName(c: ContactLike): string {
   const name = [c.last_name, c.first_name].filter(Boolean).join(' ').trim();
   return name || c.email || `Контакт #${c.id}`;
 }

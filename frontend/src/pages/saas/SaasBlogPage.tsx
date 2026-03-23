@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactQuill from 'react-quill';
 import { Quill } from 'react-quill';
@@ -7,7 +7,7 @@ import QuillResizeImage from 'quill-resize-image';
 import '../../components/documents/quillVideoAudio';
 import { saasApi, type SaasBlogPost, type SaasBlogPostCreate, type SaasBlogCategory, type SaasBlogTag } from '../../api/saas';
 import toast from 'react-hot-toast';
-import { Pencil, Trash2, Plus, LayoutGrid, List } from 'lucide-react';
+import { Pencil, Trash2, Plus, LayoutGrid, List, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { SEOMeta } from '../../components/SEOMeta';
@@ -37,6 +37,7 @@ const toolbarOptions = [
   ['link', 'image', 'video'],
   ['clean'],
 ];
+const quillFormats = ['header', 'bold', 'italic', 'underline', 'strike', 'list', 'bullet', 'link', 'image', 'video'];
 
 function PostModal({
   post,
@@ -64,12 +65,30 @@ function PostModal({
   const [metaDescription, setMetaDescription] = useState(post?.meta_description ?? '');
   const [canonicalUrl, setCanonicalUrl] = useState(post?.canonical_url ?? '');
   const [ogImage, setOgImage] = useState(post?.og_image ?? '');
+  const [isSeoOpen, setIsSeoOpen] = useState(false);
+  const [metaTitleTouched, setMetaTitleTouched] = useState(Boolean(post?.meta_title?.trim()));
+  const [metaDescriptionTouched, setMetaDescriptionTouched] = useState(Boolean(post?.meta_description?.trim()));
+  const [canonicalUrlTouched, setCanonicalUrlTouched] = useState(Boolean(post?.canonical_url?.trim()));
+  const [ogImageTouched, setOgImageTouched] = useState(Boolean(post?.og_image?.trim()));
   const [mainMediaAutoplay, setMainMediaAutoplay] = useState(post?.main_media_autoplay ?? true);
   const [categoryId, setCategoryId] = useState<number | ''>(post?.category ?? '');
   const [tagIds, setTagIds] = useState<number[]>(post?.tag_ids ?? []);
   const quillRef = useRef<ReactQuill>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const quillModules = useMemo(
+    () => ({
+      toolbar: {
+        container: toolbarOptions,
+        handlers: {
+          image: () => imageInputRef.current?.click(),
+          video: () => videoInputRef.current?.click(),
+        },
+      },
+      resize: { modules: ['Resize', 'DisplaySize'] },
+    }),
+    []
+  );
 
   const { data: categories = [] } = useQuery({
     queryKey: ['saas-blog-categories'],
@@ -113,6 +132,49 @@ function PostModal({
       toast.error('Ошибка загрузки видео');
     }
   }, []);
+
+  const slugify = (text: string): string => {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9а-яё\s-]/gi, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+  };
+
+  const stripHtml = (html: string): string => {
+    return html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  useEffect(() => {
+    if (!metaTitleTouched) {
+      setMetaTitle(title.trim());
+    }
+  }, [title, metaTitleTouched]);
+
+  useEffect(() => {
+    if (metaDescriptionTouched) return;
+    const source = excerpt.trim() || stripHtml(content);
+    setMetaDescription(source.slice(0, 160));
+  }, [excerpt, content, metaDescriptionTouched]);
+
+  useEffect(() => {
+    if (canonicalUrlTouched) return;
+    const safeSlug = slugify(slug || title);
+    if (!safeSlug) {
+      setCanonicalUrl('');
+      return;
+    }
+    setCanonicalUrl(`${window.location.origin}/blog/${safeSlug}`);
+  }, [slug, title, canonicalUrlTouched]);
+
+  useEffect(() => {
+    if (ogImageTouched) return;
+    setOgImage(post?.image_url ?? '');
+  }, [post?.image_url, ogImageTouched]);
 
   const createMutation = useMutation({
     mutationFn: (data: FormData | SaasBlogPostCreate) => saasApi.createBlogPost(data),
@@ -177,7 +239,7 @@ function PostModal({
       if (post) updateMutation.mutate(fd);
       else createMutation.mutate(fd);
     } else {
-      const payload: SaasBlogPostCreate & { published_at?: string } = {
+      const payload: SaasBlogPostCreate & { published_at?: string | null } = {
         title: title.trim(),
         excerpt,
         content: contentToSave,
@@ -198,8 +260,9 @@ function PostModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-xl border border-slate-600 bg-slate-800 p-6 shadow-xl my-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4">
+      <div className="flex min-h-full items-start justify-center py-4 sm:items-center sm:py-8">
+      <div className="w-full max-w-2xl rounded-xl border border-slate-600 bg-slate-800 p-6 shadow-xl max-h-[calc(100vh-2rem)] overflow-y-auto">
         <h2 className="text-xl font-bold text-white mb-4">
           {post ? 'Редактировать статью' : 'Создать статью'}
         </h2>
@@ -275,23 +338,15 @@ function PostModal({
           </div>
           <div>
             <label className="block text-sm text-slate-400 mb-1">Контент (текст, изображения, видео)</label>
-            <div className="blog-quill-dark rounded-lg border border-slate-600 overflow-hidden bg-slate-700 [&_.quill]:bg-slate-700 [&_.ql-container]:min-h-[200px] [&_.ql-editor]:min-h-[200px] [&_.ql-editor]:text-white">
+            <div className="blog-quill-dark rounded-lg border border-slate-600 overflow-hidden bg-slate-700">
               <ReactQuill
                 ref={quillRef}
                 theme="snow"
                 value={content}
                 onChange={setContent}
-                modules={{
-                  toolbar: {
-                    container: toolbarOptions,
-                    handlers: {
-                      image: () => imageInputRef.current?.click(),
-                      video: () => videoInputRef.current?.click(),
-                    },
-                  },
-                  resize: { modules: ['Resize', 'DisplaySize'] },
-                }}
-                formats={['header', 'bold', 'italic', 'underline', 'strike', 'list', 'bullet', 'link', 'image', 'video']}
+                modules={quillModules}
+                formats={quillFormats}
+                className="bg-slate-700 text-white"
               />
             </div>
             <input
@@ -362,49 +417,84 @@ function PostModal({
             </div>
           </div>
           <div className="pt-4 border-t border-slate-700">
-            <h3 className="text-lg font-bold text-white mb-3">SEO Настройки</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Meta Title</label>
-                <input
-                  type="text"
-                  value={metaTitle}
-                  onChange={(e) => setMetaTitle(e.target.value)}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-                  placeholder="Оптимизированный заголовок (по умолчанию берется из Заголовка)"
-                />
+            <button
+              type="button"
+              onClick={() => setIsSeoOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between rounded-lg px-2 py-2 text-left text-white hover:bg-slate-700/40"
+            >
+              <span className="text-lg font-bold">SEO Настройки</span>
+              <ChevronDown
+                className={`h-5 w-5 text-slate-400 transition-transform ${isSeoOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {isSeoOpen && (
+              <div className="space-y-4 mt-3">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Meta Title</label>
+                  <input
+                    type="text"
+                    value={metaTitle}
+                    onChange={(e) => {
+                      setMetaTitle(e.target.value);
+                      setMetaTitleTouched(true);
+                    }}
+                    onBlur={() => {
+                      if (!metaTitle.trim()) setMetaTitleTouched(false);
+                    }}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                    placeholder="Оптимизированный заголовок (по умолчанию берется из Заголовка)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Meta Description</label>
+                  <textarea
+                    value={metaDescription}
+                    onChange={(e) => {
+                      setMetaDescription(e.target.value);
+                      setMetaDescriptionTouched(true);
+                    }}
+                    onBlur={() => {
+                      if (!metaDescription.trim()) setMetaDescriptionTouched(false);
+                    }}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                    placeholder="Краткое описание для поисковиков (по умолчанию берется из Краткого описания)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Canonical URL</label>
+                  <input
+                    type="text"
+                    value={canonicalUrl}
+                    onChange={(e) => {
+                      setCanonicalUrl(e.target.value);
+                      setCanonicalUrlTouched(true);
+                    }}
+                    onBlur={() => {
+                      if (!canonicalUrl.trim()) setCanonicalUrlTouched(false);
+                    }}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                    placeholder="https://example.com/original-article"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">OG:Image URL</label>
+                  <input
+                    type="text"
+                    value={ogImage}
+                    onChange={(e) => {
+                      setOgImage(e.target.value);
+                      setOgImageTouched(true);
+                    }}
+                    onBlur={() => {
+                      if (!ogImage.trim()) setOgImageTouched(false);
+                    }}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                    placeholder="URL картинки для соцсетей (по умолчанию главное изображение)"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Meta Description</label>
-                <textarea
-                  value={metaDescription}
-                  onChange={(e) => setMetaDescription(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-                  placeholder="Краткое описание для поисковиков (по умолчанию берется из Краткого описания)"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Canonical URL</label>
-                <input
-                  type="text"
-                  value={canonicalUrl}
-                  onChange={(e) => setCanonicalUrl(e.target.value)}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-                  placeholder="https://example.com/original-article"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">OG:Image URL</label>
-                <input
-                  type="text"
-                  value={ogImage}
-                  onChange={(e) => setOgImage(e.target.value)}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-                  placeholder="URL картинки для соцсетей (по умолчанию главное изображение)"
-                />
-              </div>
-            </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-700">
             <label className="flex items-center gap-2 text-slate-300">
@@ -443,6 +533,7 @@ function PostModal({
             </button>
           </div>
         </form>
+      </div>
       </div>
     </div>
   );
@@ -862,7 +953,7 @@ export default function SaasBlogPage() {
     <div className="space-y-6">
       <SEOMeta
         title="Блог"
-        description="Статьи, новости, кейсы и полезные материалы от команды Office Suite 360"
+        description="Статьи, новости, кейсы и полезные материалы от команды AntExpress"
         url="/blog"
       />
       <div className="flex flex-wrap items-center justify-between gap-4">

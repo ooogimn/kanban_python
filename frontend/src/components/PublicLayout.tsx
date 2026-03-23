@@ -1,17 +1,29 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import PublicFooter from './PublicFooter';
+import BrandWordmark from './BrandWordmark';
+import PublicIntegrationsHead from './PublicIntegrationsHead';
+import LandingNavigatorWidget from './LandingNavigatorWidget';
+import LandingAiAssistantWidget from './LandingAiAssistantWidget';
 
 /**
  * Публичный layout для лендинга и юр-страниц: хедер без сайдбара приложения + полный футер.
  */
 export default function PublicLayout() {
+  const location = useLocation();
+  const showLandingNavigator =
+    location.pathname === '/landing' ||
+    location.pathname === '/landing/' ||
+    location.pathname === '/landing1' ||
+    location.pathname === '/landing2';
+
   return (
     <div className="min-h-screen bg-imperial-bg text-imperial-text font-sans antialiased flex flex-col">
+      <PublicIntegrationsHead />
       <header className="sticky top-0 z-40 border-b border-white/10 bg-imperial-surface/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/landing" className="flex items-center gap-2 text-white font-semibold">
-            <img src="/OS_LOGO.png" alt="" className="w-8 h-8 rounded-lg object-contain bg-white/10" />
-            <span>Office Suite 360</span>
+            <img src="/OS_LOGO.png?v=20260320" alt="" className="w-24 h-24 rounded-lg object-contain bg-white/10" />
+            <BrandWordmark className="text-3xl font-bold leading-none" />
           </Link>
           <nav className="flex items-center gap-4">
             <Link to="/blog" className="text-imperial-muted hover:text-white text-sm font-medium transition-colors">
@@ -39,6 +51,8 @@ export default function PublicLayout() {
         <Outlet />
       </main>
       <PublicFooter />
+      {showLandingNavigator && <LandingNavigatorWidget />}
+      {showLandingNavigator && <LandingAiAssistantWidget />}
     </div>
   );
 }

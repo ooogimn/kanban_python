@@ -61,6 +61,182 @@ export interface SaasUserEvent {
   amount: string | null;
 }
 
+export interface SaasPlatformSettings {
+  brand_name: string;
+  public_site_url: string;
+  yandex_webmaster_verification: string;
+  yandex_metrika_counter_id: string;
+  yandex_metrika_tag: string;
+  google_analytics_measurement_id: string;
+  google_tag_manager_id: string;
+  yandex_rsy_site_id: string;
+  yandex_rsy_block_id: string;
+  yandex_rsy_script: string;
+  custom_head_html: string;
+  custom_body_html: string;
+  landing_media_categories: string[];
+  landing_media_carousel: Array<{
+    id?: string;
+    category: string;
+    title?: string;
+    description?: string;
+    media_type: 'image' | 'video';
+    media_url: string;
+  }>;
+  landing_portal_cards: Array<{
+    name: string;
+    desc: string;
+    href: string;
+    image: string;
+  }>;
+  landing_plan_styles: Array<{
+    plan_name: string;
+    border_color: string;
+    glow_color: string;
+  }>;
+  default_landing_category: string;
+  landing_default_version: 'v1' | 'v2' | string;
+  landing_private_reviews: Array<{ author: string; text: string; avatar?: string }>;
+  landing_company_reviews: Array<{ company: string; text: string; logo: string }>;
+  landing_ai_canned_responses: Array<{
+    keywords: string[];
+    answer: string;
+  }>;
+  landing_ai_fallback_reply: string;
+  landing_ai_chat_logs: Array<{
+    id: string;
+    session_id: string;
+    role: 'user' | 'assistant';
+    message: string;
+    created_at?: string;
+    user_id?: number | null;
+    user_username?: string;
+  }>;
+  landing_pending_reviews: Array<{
+    id: string;
+    review_type: 'private' | 'company';
+    author?: string;
+    company?: string;
+    text: string;
+    avatar_or_logo?: string;
+    user_id?: number | null;
+    user_username?: string;
+    status?: string;
+    created_at?: string;
+  }>;
+  landing_lead_requests: Array<{
+    id: string;
+    name: string;
+    contact: string;
+    message?: string;
+    user_id?: number | null;
+    user_username?: string;
+    status?: string;
+    source?: string;
+    created_at?: string;
+  }>;
+  yookassa_shop_id: string;
+  yookassa_return_url: string;
+  has_yookassa_secret: boolean;
+  updated_at: string;
+}
+
+export interface SaasSettingsHistoryItem {
+  id: string;
+  created_at: string;
+  updated_by: number | null;
+  brand_name?: string;
+  public_site_url?: string;
+}
+
+export interface SaasPlatformSettingsUpdate {
+  brand_name?: string;
+  public_site_url?: string;
+  yandex_webmaster_verification?: string;
+  yandex_metrika_counter_id?: string;
+  yandex_metrika_tag?: string;
+  google_analytics_measurement_id?: string;
+  google_tag_manager_id?: string;
+  yandex_rsy_site_id?: string;
+  yandex_rsy_block_id?: string;
+  yandex_rsy_script?: string;
+  custom_head_html?: string;
+  custom_body_html?: string;
+  landing_media_categories?: string[];
+  landing_media_carousel?: Array<{
+    id?: string;
+    category: string;
+    title?: string;
+    description?: string;
+    media_type: 'image' | 'video';
+    media_url: string;
+  }>;
+  landing_portal_cards?: Array<{
+    name: string;
+    desc: string;
+    href: string;
+    image: string;
+  }>;
+  landing_plan_styles?: Array<{
+    plan_name: string;
+    border_color: string;
+    glow_color: string;
+  }>;
+  default_landing_category?: string;
+  landing_default_version?: 'v1' | 'v2' | string;
+  landing_private_reviews?: Array<{ author: string; text: string; avatar?: string }>;
+  landing_company_reviews?: Array<{ company: string; text: string; logo: string }>;
+  landing_ai_canned_responses?: Array<{
+    keywords: string[];
+    answer: string;
+  }>;
+  landing_ai_fallback_reply?: string;
+  landing_ai_chat_logs?: Array<{
+    id: string;
+    session_id: string;
+    role: 'user' | 'assistant';
+    message: string;
+    created_at?: string;
+    user_id?: number | null;
+    user_username?: string;
+  }>;
+  landing_pending_reviews?: Array<{
+    id: string;
+    review_type: 'private' | 'company';
+    author?: string;
+    company?: string;
+    text: string;
+    avatar_or_logo?: string;
+    user_id?: number | null;
+    user_username?: string;
+    status?: string;
+    created_at?: string;
+  }>;
+  landing_lead_requests?: Array<{
+    id: string;
+    name: string;
+    contact: string;
+    message?: string;
+    user_id?: number | null;
+    user_username?: string;
+    status?: string;
+    source?: string;
+    created_at?: string;
+  }>;
+  yookassa_shop_id?: string;
+  yookassa_secret_key?: string;
+  yookassa_return_url?: string;
+}
+
+export type LandingCarouselItem = {
+  id?: string;
+  category: string;
+  title?: string;
+  description?: string;
+  media_type: 'image' | 'video';
+  media_url: string;
+};
+
 export const saasApi = {
   getStats: async (): Promise<SaasStats> => {
     const response = await api.get('/saas/dashboard/stats/');
@@ -223,6 +399,33 @@ export const saasApi = {
   },
   deleteAd: async (id: number): Promise<void> => {
     await api.delete(`/saas/ads/${id}/`);
+  },
+
+  getPlatformSettings: async (): Promise<SaasPlatformSettings> => {
+    const response = await api.get('/saas/settings/platform/');
+    return response.data;
+  },
+
+  updatePlatformSettings: async (data: SaasPlatformSettingsUpdate): Promise<SaasPlatformSettings> => {
+    const response = await api.patch('/saas/settings/platform/', data);
+    return response.data;
+  },
+
+  getPlatformSettingsHistory: async (): Promise<SaasSettingsHistoryItem[]> => {
+    const response = await api.get('/saas/settings/platform/history/');
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  rollbackPlatformSettings: async (versionId: string): Promise<SaasPlatformSettings> => {
+    const response = await api.post('/saas/settings/platform/rollback/', { version_id: versionId });
+    return response.data;
+  },
+
+  uploadLandingMedia: async (file: File): Promise<{ url: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await api.post('/saas/settings/upload-landing-media/', form);
+    return response.data;
   },
 };
 

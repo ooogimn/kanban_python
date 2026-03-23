@@ -67,7 +67,8 @@ export default function CyberEdge({
   data,
   selected,
   ...pathProps
-}: EdgeProps<CyberEdgeData>) {
+}: EdgeProps) {
+  const edgeData = (data ?? {}) as CyberEdgeData;
   const { updateEdgeData, deleteElements, getEdges, setEdges } = useReactFlow();
   const edgeType = useStore((s) => s.edges.find((e) => e.id === id)?.type) ?? 'default';
   const pathType = (edgeType === undefined || edgeType === 'default' ? 'default' : edgeType) as EdgePathType;
@@ -82,15 +83,15 @@ export default function CyberEdge({
           : getBezierPath(pathProps);
   const [edgePath, centerX, centerY] = pathResult;
 
-  const style = data?.style ?? 'solid';
-  const color = data?.color ?? DEFAULT_COLOR;
-  const strokeWidth = data?.strokeWidth ?? DEFAULT_STROKE_WIDTH;
-  const label = data?.label ?? '';
-  const labelColor = data?.labelColor ?? DEFAULT_LABEL_COLOR;
-  const labelFontSize = data?.labelFontSize ?? DEFAULT_LABEL_FONT_SIZE;
-  const labelRotation = data?.labelRotation ?? 0;
-  const labelWrapperColor = data?.labelWrapperColor ?? DEFAULT_WRAPPER_COLOR;
-  const labelWrapperSize = data?.labelWrapperSize ?? 'medium';
+  const style = edgeData.style ?? 'solid';
+  const color = edgeData.color ?? DEFAULT_COLOR;
+  const strokeWidth = edgeData.strokeWidth ?? DEFAULT_STROKE_WIDTH;
+  const label = edgeData.label ?? '';
+  const labelColor = edgeData.labelColor ?? DEFAULT_LABEL_COLOR;
+  const labelFontSize = edgeData.labelFontSize ?? DEFAULT_LABEL_FONT_SIZE;
+  const labelRotation = edgeData.labelRotation ?? 0;
+  const labelWrapperColor = edgeData.labelWrapperColor ?? DEFAULT_WRAPPER_COLOR;
+  const labelWrapperSize = edgeData.labelWrapperSize ?? 'medium';
   const strokeDasharray = STROKE_DASH[style];
 
   const edgeStyle = {

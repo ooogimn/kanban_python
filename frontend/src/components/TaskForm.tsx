@@ -138,7 +138,6 @@ export default function TaskForm({
   onComplete,
   isSubmitting = false,
   submitLabel = 'Сохранить',
-  invalidateKeys: propInvalidateKeys,
 }: TaskFormProps) {
   const isOffline = useNetworkStatus();
   const projectList: Project[] = Array.isArray(projects)

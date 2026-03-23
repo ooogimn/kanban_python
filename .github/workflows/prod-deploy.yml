@@ -1,0 +1,37 @@
+name: Production Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on production server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/kanban_python/app
+            git pull --ff-only origin main
+
+            cd backend
+            .venv/bin/python manage.py migrate
+            .venv/bin/python manage.py check
+
+            cd ../frontend
+            npm ci
+            npm run build
+
+            systemctl restart kanban-gunicorn
+            systemctl reload nginx
+
+            systemctl is-active kanban-gunicorn
+            curl -s -o /dev/null -w "%{http_code}" https://api.antexpress.ru/api/health/

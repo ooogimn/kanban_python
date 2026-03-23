@@ -12,6 +12,7 @@ from .views import (
     SaasTagViewSet,
     SaasPostViewSet,
     SaasAdvertisementViewSet,
+    SaasSettingsViewSet,
 )
 
 router = NoFormatSuffixRouter()
@@ -22,6 +23,7 @@ router.register(r'blog/categories', SaasCategoryViewSet, basename='saas-blog-cat
 router.register(r'blog/tags', SaasTagViewSet, basename='saas-blog-tag')
 router.register(r'blog/posts', SaasPostViewSet, basename='saas-blog-post')
 router.register(r'ads', SaasAdvertisementViewSet, basename='saas-ad')
+router.register(r'settings', SaasSettingsViewSet, basename='saas-settings')
 
 urlpatterns = [
     path('', include(router.urls)),

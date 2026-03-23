@@ -21,7 +21,6 @@ interface CreateNoteModalProps {
 export default function CreateNoteModal({
   isOpen,
   onClose,
-  workspaceId,
   defaultProjectId,
   defaultWorkitemId,
   projects = [],

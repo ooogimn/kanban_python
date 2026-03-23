@@ -79,7 +79,8 @@ class BillingMeResponseSerializer(serializers.Serializer):
     next_billing_at = serializers.DateTimeField(allow_null=True, required=False)
     provider_display = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     status_flags = serializers.JSONField(required=False)
-    entitlements = serializers.JSONField()
+    entitlement = serializers.JSONField(required=False)
+    entitlements = serializers.JSONField(required=False)
 
 
 class BillingUsageResponseSerializer(serializers.Serializer):

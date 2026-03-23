@@ -147,7 +147,9 @@ export default function InvoicesPage() {
   });
   const invoices: Invoice[] = Array.isArray(invoicesData)
     ? invoicesData
-    : (invoicesData as { results?: Invoice[] })?.results ?? [];
+    : (invoicesData && typeof invoicesData === 'object' && 'results' in invoicesData
+      ? ((invoicesData as { results?: Invoice[] }).results ?? [])
+      : []);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);

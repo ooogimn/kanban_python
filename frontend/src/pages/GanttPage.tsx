@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import { ganttApi } from '../api/gantt';
 import { kanbanApi } from '../api/kanban';
@@ -15,6 +14,7 @@ import { TaskDetailModal } from './KanbanPage';
 import type { KanbanItem } from '../types';
 import type { GanttTask } from '../types';
 import toast from 'react-hot-toast';
+import { downloadCsv } from '../utils/exportCsv';
 
 function flattenGanttTasks(tasks: GanttTask[]): GanttTask[] {
   const out: GanttTask[] = [];
@@ -296,12 +296,8 @@ export default function GanttPage() {
         t.progress ?? 0,
       ]),
     ];
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Гант');
-    XLSX.writeFile(wb, `gantt-${Date.now()}.xlsx`);
-    toast.success('Сохранено в Excel');
+    downloadCsv(`gantt-${Date.now()}.csv`, rows);
+    toast.success('Сохранено в CSV');
   }, [effectiveProjectId, ganttData?.tasks, ganttAllData?.tasks]);
   const handleFullscreen = useCallback(() => {
     const el = ganttPageRef.current;

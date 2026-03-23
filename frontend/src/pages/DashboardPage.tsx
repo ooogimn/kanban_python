@@ -128,7 +128,7 @@ export default function DashboardPage() {
   const effectiveWorkspace = currentWorkspace ?? (workspaces[0] ?? null);
   const workspaceId = effectiveWorkspace?.id ?? null;
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ['dashboard-stats', workspaceId],
     queryFn: () => analyticsApi.getDashboardStats(workspaceId!),
     enabled: !!workspaceId,

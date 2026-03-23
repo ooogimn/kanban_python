@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { TelegramAuthData, SocialProvider } from '../types';
 import { authApi } from '../api/auth';
 import toast from 'react-hot-toast';
+import BrandWordmark from '../components/BrandWordmark';
 
 const TELEGRAM_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '';
 
@@ -182,8 +183,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 p-4">
       <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-lg shadow-xl p-8">
         <div className="text-center mb-8">
-          <img src="/OS_LOGO.png" alt="OS LukintrLab" className="w-16 h-16 mx-auto mb-4 object-contain" />
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">OS LukintrLab</h1>
+          <img src="/OS_LOGO.png?v=20260320" alt="AntExpress" className="w-32 h-32 mx-auto mb-4 object-contain" />
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            <BrandWordmark />
+          </h1>
           <p className="text-slate-600 dark:text-slate-400">Войдите в свой аккаунт</p>
         </div>
 

@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.http import FileResponse
+from django.utils import timezone
 
 from apps.auth.permissions import IsDirectorOrManager
 from .models import Invoice, PlanVersion
@@ -193,11 +194,72 @@ class BillingAccountViewSet(viewsets.ViewSet):
         'manual': 'Manual',
     }
 
+    @staticmethod
+    def _to_frontend_access_mode(raw_mode):
+        mapping = {
+            'full': 'full',
+            'trial': 'trial',
+            'limited': 'limited',
+            'blocked': 'blocked',
+            'grace': 'limited',
+            'read_only': 'blocked',
+        }
+        return mapping.get(raw_mode, 'limited')
+
+    @classmethod
+    def _normalize_frontend_entitlement(cls, entitlements, subscription):
+        raw_source = (entitlements or {}).get('source')
+        source_map = {
+            'v2': 'subscription',
+            'legacy': 'free',
+            'subscription': 'subscription',
+            'free': 'free',
+            'trial': 'trial',
+            'override': 'override',
+            'none': 'none',
+        }
+        source = source_map.get(raw_source, 'none')
+
+        limits = (entitlements or {}).get('limits')
+        limits = limits if isinstance(limits, dict) else {}
+
+        features = (entitlements or {}).get('features')
+        features = features if isinstance(features, dict) else {}
+
+        restrictions = (entitlements or {}).get('restrictions')
+        restrictions = restrictions if isinstance(restrictions, dict) else None
+
+        period_raw = (entitlements or {}).get('period')
+        period_raw = period_raw if isinstance(period_raw, dict) else {}
+        period_start = period_raw.get('start')
+        period_end = period_raw.get('end')
+        trial_end = subscription.trial_end.isoformat() if (subscription and subscription.trial_end) else None
+
+        days_left = None
+        if subscription and subscription.current_period_end:
+            end_date = subscription.current_period_end.date()
+            days_left = max((end_date - timezone.now().date()).days, 0)
+
+        return {
+            'source': source,
+            'access_mode': cls._to_frontend_access_mode((entitlements or {}).get('access_mode')),
+            'limits': limits,
+            'features': features,
+            'restrictions': restrictions,
+            'period': {
+                'start': period_start,
+                'end': period_end,
+                'trial_end': trial_end,
+                'days_left': days_left,
+            },
+        }
+
     @action(detail=False, methods=['get'], url_path='me')
     def me(self, request):
         account = BillingAccountService.get_user_account(request.user)
         subscription = BillingAccountService.get_current_subscription(account) if account else None
         entitlements = EntitlementService.calculate(request.user, account=account, subscription=subscription)
+        entitlement = self._normalize_frontend_entitlement(entitlements, subscription)
         plan_badge = None
         if subscription and subscription.plan_version:
             code = (subscription.plan_version.code or '').strip()
@@ -242,6 +304,7 @@ class BillingAccountViewSet(viewsets.ViewSet):
             'next_billing_at': subscription.current_period_end if subscription else None,
             'provider_display': provider_display,
             'status_flags': status_flags,
+            'entitlement': entitlement,
             'entitlements': entitlements,
         }
         serializer = BillingMeResponseSerializer(data=payload)

@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState, useRef, useCallback, type CSSProperties } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toPng, toJpeg } from 'html-to-image';
-import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { downloadCsv } from '../utils/exportCsv';
 import { financeApi, type Wallet, type Category, type Transaction, type FinanceAnalyticsSummary, type WalletType } from '../api/finance';
 import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
@@ -151,13 +149,17 @@ export default function FinancePage() {
     queryKey: ['finance-projects'],
     queryFn: () => todoApi.getProjects({ page: 1 }),
   });
-  const projects: Project[] = projectsResponse?.results ?? projectsResponse ?? [];
+  const projects: Project[] = Array.isArray(projectsResponse)
+    ? projectsResponse
+    : projectsResponse?.results ?? [];
 
   const { data: workspacesResponse } = useQuery({
     queryKey: ['finance-workspaces'],
     queryFn: () => workspaceApi.getWorkspaces(),
   });
-  const workspaces: Workspace[] = workspacesResponse?.results ?? workspacesResponse ?? [];
+  const workspaces: Workspace[] = Array.isArray(workspacesResponse)
+    ? workspacesResponse
+    : workspacesResponse?.results ?? [];
 
   const { data: transactionsResponse, isLoading: transactionsLoading } = useQuery({
     queryKey: ['finance-transactions', filters],
@@ -335,50 +337,55 @@ export default function FinancePage() {
   };
 
   const exportOptions = { pixelRatio: 2, cacheBust: true };
-  const handleExportJpg = useCallback(() => {
+  const handleExportJpg = useCallback(async () => {
     if (!pageRef.current) return;
     setExportLoading('jpg');
-    toJpeg(pageRef.current, { ...exportOptions, quality: 0.95 })
-      .then((dataUrl) => {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `finance-${Date.now()}.jpg`;
-        a.click();
-        toast.success('Сохранено в JPG');
-      })
-      .catch(() => toast.error('Не удалось сохранить JPG'))
-      .finally(() => setExportLoading(null));
+    try {
+      const { toJpeg } = await import('html-to-image');
+      const dataUrl = await toJpeg(pageRef.current, { ...exportOptions, quality: 0.95 });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `finance-${Date.now()}.jpg`;
+      a.click();
+      toast.success('Сохранено в JPG');
+    } catch {
+      toast.error('Не удалось сохранить JPG');
+    } finally {
+      setExportLoading(null);
+    }
   }, []);
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     if (!pageRef.current) return;
     setExportLoading('pdf');
-    toPng(pageRef.current, exportOptions)
-      .then((dataUrl) => {
-        const img = new Image();
-        img.onload = () => {
-          const pdf = new jsPDF({
-            orientation: img.width > img.height ? 'landscape' : 'portrait',
-            unit: 'px',
-            format: [img.width, img.height],
-          });
-          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
-          pdf.save(`finance-${Date.now()}.pdf`);
-          toast.success('Сохранено в PDF');
-        };
-        img.src = dataUrl;
-      })
-      .catch(() => toast.error('Не удалось сохранить PDF'))
-      .finally(() => setExportLoading(null));
+    try {
+      const [{ toPng }, { jsPDF }] = await Promise.all([
+        import('html-to-image'),
+        import('jspdf'),
+      ]);
+      const dataUrl = await toPng(pageRef.current, exportOptions);
+      const img = new Image();
+      img.onload = () => {
+        const pdf = new jsPDF({
+          orientation: img.width > img.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [img.width, img.height],
+        });
+        pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+        pdf.save(`finance-${Date.now()}.pdf`);
+        toast.success('Сохранено в PDF');
+      };
+      img.src = dataUrl;
+    } catch {
+      toast.error('Не удалось сохранить PDF');
+    } finally {
+      setExportLoading(null);
+    }
   }, []);
   const handleExportExcel = useCallback(() => {
     if (activeTab === 'wallets') {
       const rows: (string | number)[][] = [['Название', 'Тип', 'Валюта', 'Баланс']];
       wallets.forEach((w) => rows.push([w.name ?? '', w.type ?? '', w.currency ?? '', Number(w.balance ?? 0)]));
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 6 }, { wch: 14 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Кошельки');
-      XLSX.writeFile(wb, `finance-wallets-${Date.now()}.xlsx`);
+      downloadCsv(`finance-wallets-${Date.now()}.csv`, rows);
     } else if (activeTab === 'transactions') {
       const rows: (string | number)[][] = [['Дата', 'Тип', 'Описание', 'Сумма', 'Валюта', 'Категория']];
       transactions.forEach((tx) =>
@@ -391,11 +398,7 @@ export default function FinancePage() {
           tx.category?.name ?? '',
         ])
       );
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 16 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Операции');
-      XLSX.writeFile(wb, `finance-transactions-${Date.now()}.xlsx`);
+      downloadCsv(`finance-transactions-${Date.now()}.csv`, rows);
     } else {
       const rows: (string | number)[][] = [
         ['Показатель', 'Значение'],
@@ -403,13 +406,9 @@ export default function FinancePage() {
         ['Расход за месяц', Number(analytics?.current_month_expense ?? 0)],
         ['Доход за месяц', lastMonthIncome],
       ];
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = [{ wch: 22 }, { wch: 16 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Сводка');
-      XLSX.writeFile(wb, `finance-dashboard-${Date.now()}.xlsx`);
+      downloadCsv(`finance-dashboard-${Date.now()}.csv`, rows);
     }
-    toast.success('Сохранено в Excel');
+    toast.success('Сохранено в CSV');
   }, [activeTab, wallets, transactions, totalBalance, analytics?.current_month_expense, lastMonthIncome]);
   const handleFullscreen = useCallback(() => {
     if (!pageRef.current) return;
@@ -509,7 +508,6 @@ export default function FinancePage() {
         <DashboardTab
           analytics={analytics}
           wallets={wallets}
-          transactions={transactions}
           isLoading={analyticsLoading || walletsLoading}
           spendByCategory={spendByCategory}
           totalBalance={totalBalance}
@@ -519,21 +517,15 @@ export default function FinancePage() {
       {activeTab === 'wallets' && (
         <WalletsTab
           wallets={wallets}
-          workspaces={workspaces}
           isLoading={walletsLoading}
           openModal={() => setWalletModalOpen(true)}
         />
       )}
       {activeTab === 'transactions' && (
         <TransactionsTab
-          wallets={wallets}
-          projects={projects}
           transactions={transactions}
-          filters={filters}
-          setFilters={setFilters}
           isLoading={transactionsLoading}
           onDownloadReceipt={handleDownloadReceipt}
-          onOpenModal={setTransactionModalMode}
           onSelectTransaction={setSelectedTransaction}
         />
       )}
@@ -596,7 +588,6 @@ export default function FinancePage() {
 function DashboardTab({
   analytics,
   wallets,
-  transactions,
   isLoading,
   spendByCategory,
   totalBalance,
@@ -604,7 +595,6 @@ function DashboardTab({
 }: {
   analytics?: FinanceAnalyticsSummary;
   wallets: Wallet[];
-  transactions: Transaction[];
   isLoading: boolean;
   spendByCategory: Array<{ name: string; value: number }>;
   totalBalance: number;
@@ -630,7 +620,7 @@ function DashboardTab({
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <KpiCard title="Совокупный баланс" value={formatCurrency(totalBalance)} badge="Wallets" trend="portfolio" />
+        <KpiCard title="Совокупный баланс" value={formatCurrency(totalBalance)} badge="Wallets" />
         <KpiCard title="Расход за месяц" value={formatCurrency(Number(analytics?.current_month_expense ?? 0))} badge="Spend" />
         <KpiCard title="Доход за месяц" value={formatCurrency(monthIncome)} badge="Income" positive />
       </div>
@@ -759,24 +749,14 @@ function WalletsTab({
 }
 
 function TransactionsTab({
-  wallets,
-  projects,
   transactions,
-  filters,
-  setFilters,
   isLoading,
   onDownloadReceipt,
-  onOpenModal,
   onSelectTransaction,
 }: {
-  wallets: Wallet[];
-  projects: Project[];
   transactions: Transaction[];
-  filters: TransactionFiltersState;
-  setFilters: (filters: TransactionFiltersState) => void;
   isLoading: boolean;
   onDownloadReceipt: (tx: Transaction) => void;
-  onOpenModal: (mode: TransactionModalMode) => void;
   onSelectTransaction: (tx: Transaction) => void;
 }) {
   return (

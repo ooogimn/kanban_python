@@ -1,5 +1,5 @@
 import api from './client';
-import { DashboardStats, ProjectMetrics, DashboardOverview } from '../types';
+import { DashboardStats, ProjectMetrics, DashboardOverview, DashboardChartsData } from '../types';
 
 function downloadBlob(blob: Blob, defaultName: string, contentDisposition?: string) {
   let filename = defaultName;

@@ -105,8 +105,6 @@ export default function NotesPage() {
     if (!projectFilter) setTaskFilter('');
   }, [projectFilter]);
 
-  const isLoading = personalLoading || (!!currentWorkspace?.id && workspaceLoading);
-
   function noteLink(note: WikiPage) {
     if (note.project) return `/projects/${note.project}/wiki/page/${note.id}`;
     if (note.workspace == null) return `/documents/page/${note.id}`;

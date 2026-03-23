@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { workspaceApi } from '../../api/workspace';
 import { aiApi, type WorkspaceAgentDto, type ChatMessageDto } from '../../api/ai';
 
 const ROLE_USER = 'user';
 
 export default function AiChatWidget() {
-  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedWorkspaceAgent, setSelectedWorkspaceAgent] = useState<WorkspaceAgentDto | null>(null);
   const [inputValue, setInputValue] = useState('');

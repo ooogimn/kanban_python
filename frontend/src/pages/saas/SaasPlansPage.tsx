@@ -539,7 +539,7 @@ export default function SaasPlansPage() {
     <div className="space-y-6">
       <SEOMeta
         title="Тарифные планы"
-        description="Управление тарифными планами и подписками в Office Suite 360. Различные варианты доступа, гибкие лимиты и скидки на год."
+        description="Управление тарифными планами и подписками в AntExpress. Различные варианты доступа, гибкие лимиты и скидки на год."
         url="/admin/plans"
       />
       {/* Заголовок */}

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
-const backendProxyTarget = process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:8020'
+const backendProxyTarget = process.env.VITE_BACKEND_PROXY_TARGET || 'http://localhost:8000'
 const backendProxyWsTarget = backendProxyTarget.replace(/^http/, 'ws')
 
 // https://vitejs.dev/config/
@@ -15,9 +15,9 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['apple-touch-icon.png', 'icons/*.png', 'OS_LOGO.png'],
       manifest: {
-        name: 'OS-LukinterLab',
-        short_name: 'LukinterLab',
-        description: 'Office Suite 360 — Мониторинг и задачи',
+        name: 'AntExpress',
+        short_name: 'AntExpress',
+        description: 'AntExpress — Мониторинг и задачи',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
@@ -41,6 +41,7 @@ export default defineConfig({
         categories: ['business', 'productivity'],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
@@ -90,6 +91,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/api': {
         target: backendProxyTarget,
@@ -107,5 +111,20 @@ export default defineConfig({
   },
   build: {
     target: ['es2021', 'chrome100', 'safari13'],
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/react-router/') ||
+            id.includes('/react-router-dom/')
+          ) {
+            return 'react-core'
+          }
+          return undefined
+        },
+      },
+    },
   },
 })

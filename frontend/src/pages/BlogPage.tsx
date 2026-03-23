@@ -118,13 +118,13 @@ export default function BlogPage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Blog",
-    "name": "Блог Office Suite 360",
+    "name": "Блог AntExpress",
     "description": "Статьи, новости, кейсы и полезные материалы об управлении проектами и бизнесом.",
-    "url": "https://lukinterlab.ru/blog",
+    "url": "https://antexpress.ru/blog",
     "publisher": {
       "@type": "Organization",
-      "name": "Office Suite 360",
-      "url": "https://lukinterlab.ru"
+      "name": "AntExpress",
+      "url": "https://antexpress.ru"
     }
   };
 
@@ -132,7 +132,7 @@ export default function BlogPage() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <SEOMeta
         title="Блог о бизнесе и проектах"
-        description="Читайте полезные статьи, кейсы и новости об управлении проектами, временем и бизнесом от Office Suite 360."
+        description="Читайте полезные статьи, кейсы и новости об управлении проектами, временем и бизнесом от AntExpress."
         url="/blog"
       />
       <JsonLd data={jsonLd} />

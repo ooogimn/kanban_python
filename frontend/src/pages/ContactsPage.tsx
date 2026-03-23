@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authApi } from '../api/auth';
@@ -14,6 +13,7 @@ import { ContactListTable, CreateContactModal, MemberDetailModal } from '../comp
 import type { Contact } from '../types/hr';
 import type { WorkspaceAgentDto } from '../api/ai';
 import { getAssetUrl } from '../utils/assetUrl';
+import { downloadCsv } from '../utils/exportCsv';
 
 function canSeeFinance(groups?: string[]): boolean {
   if (!groups || !Array.isArray(groups)) return false;
@@ -183,23 +183,15 @@ export default function ContactsPage() {
           canSeeFinanceFlag && wa.agent.monthly_cost != null ? Number(wa.agent.monthly_cost) : '—',
         ])
       );
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = [{ wch: 24 }, { wch: 14 }, { wch: 12 }, { wch: 14 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'ИИ-сотрудники');
-      XLSX.writeFile(wb, `contacts-ai-${Date.now()}.xlsx`);
+      downloadCsv(`contacts-ai-${Date.now()}.csv`, rows);
     } else {
       const rows: (string | number)[][] = [['Имя', 'Фамилия', 'Email', 'Группа']];
       filteredContactList.forEach((c) =>
         rows.push([c.first_name ?? '', c.last_name ?? '', c.email ?? '', c.group ?? ''])
       );
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 24 }, { wch: 12 }];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Контакты');
-      XLSX.writeFile(wb, `contacts-${Date.now()}.xlsx`);
+      downloadCsv(`contacts-${Date.now()}.csv`, rows);
     }
-    toast.success('Сохранено в Excel');
+    toast.success('Сохранено в CSV');
   }, [activeTab, aiTeamList, canSeeFinanceFlag, filteredContactList]);
   const handleFullscreen = useCallback(() => {
     if (!pageRef.current) return;
@@ -416,7 +408,7 @@ export default function ContactsPage() {
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           workspaceId={workspaceId}
-          superGroup={activeTab}
+          superGroup={activeTab === 'AI_TEAM' ? 'SYSTEM' : activeTab}
           onSuccess={() => setCreateModalOpen(false)}
         />
       )}

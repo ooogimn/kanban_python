@@ -16,12 +16,13 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth import get_user_model
 from apps.auth.permissions import IsSuperUser
 from apps.core.models import Workspace, UserEvent
 from apps.billing.models import Subscription, BillingSubscription, PaymentTransaction
-from .models import Plan
+from .models import Plan, SaasPlatformSettings
 from .serializers import (
     PlanSerializer,
     PlanCreateUpdateSerializer,
@@ -30,6 +31,7 @@ from .serializers import (
     SaasCategorySerializer,
     SaasTagSerializer,
     SaasRevenueStatsSerializer,
+    SaasPlatformSettingsSerializer,
 )
 from apps.blog.models import Category, Post, Tag
 from apps.marketing.models import Advertisement
@@ -392,7 +394,12 @@ class SaasPostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsSuperUser]
     lookup_field = 'pk'
 
-    @action(detail=False, methods=['post'], url_path='upload-media')
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='upload-media',
+        parser_classes=[MultiPartParser, FormParser],
+    )
     def upload_media(self, request):
         """Загрузка изображения/видео для вставки в контент. Возвращает { url }."""
         file = request.FILES.get('file')
@@ -410,5 +417,105 @@ class SaasAdvertisementViewSet(viewsets.ModelViewSet):
     queryset = Advertisement.objects.all().order_by('slot', 'sort_order', 'id')
     serializer_class = SaasAdvertisementSerializer
     permission_classes = [IsAuthenticated, IsSuperUser]
+
+
+class SaasSettingsViewSet(viewsets.ViewSet):
+    """
+    Настройки интеграций/маркетинга/платежей для SaaS Admin.
+    GET/PATCH /api/v1/saas/settings/platform/
+    """
+    permission_classes = [IsAuthenticated, IsSuperUser]
+    history_limit = 30
+
+    def _snapshot(self, obj):
+        data = SaasPlatformSettingsSerializer(obj).data
+        data.pop('updated_at', None)
+        data.pop('has_yookassa_secret', None)
+        data.pop('settings_history', None)
+        return data
+
+    def _push_history(self, obj, snapshot, user):
+        history = obj.settings_history or []
+        history.append(
+            {
+                'id': uuid.uuid4().hex,
+                'created_at': timezone.now().isoformat(),
+                'updated_by': getattr(user, 'id', None),
+                'snapshot': snapshot,
+            }
+        )
+        obj.settings_history = history[-self.history_limit:]
+        obj.save(update_fields=['settings_history', 'updated_at'])
+
+    @action(detail=False, methods=['get'], url_path='platform')
+    def platform(self, request):
+        obj = SaasPlatformSettings.get_solo()
+        serializer = SaasPlatformSettingsSerializer(obj)
+        return Response(serializer.data)
+
+    @platform.mapping.patch
+    def update_platform(self, request):
+        obj = SaasPlatformSettings.get_solo()
+        before_snapshot = self._snapshot(obj)
+        serializer = SaasPlatformSettingsSerializer(obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = serializer.save(updated_by=request.user)
+        self._push_history(updated, before_snapshot, request.user)
+        out = SaasPlatformSettingsSerializer(updated)
+        return Response(out.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='platform/history')
+    def platform_history(self, request):
+        obj = SaasPlatformSettings.get_solo()
+        history = obj.settings_history or []
+        result = [
+            {
+                'id': item.get('id'),
+                'created_at': item.get('created_at'),
+                'updated_by': item.get('updated_by'),
+                'brand_name': (item.get('snapshot') or {}).get('brand_name'),
+                'public_site_url': (item.get('snapshot') or {}).get('public_site_url'),
+            }
+            for item in reversed(history)
+        ]
+        return Response(result)
+
+    @action(detail=False, methods=['post'], url_path='platform/rollback')
+    def platform_rollback(self, request):
+        version_id = str(request.data.get('version_id') or '').strip()
+        if not version_id:
+            return Response({'detail': 'version_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        obj = SaasPlatformSettings.get_solo()
+        history = obj.settings_history or []
+        target = next((item for item in history if str(item.get('id')) == version_id), None)
+        if not target:
+            return Response({'detail': 'version not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        snapshot = target.get('snapshot') or {}
+        before_snapshot = self._snapshot(obj)
+        serializer = SaasPlatformSettingsSerializer(obj, data=snapshot, partial=True)
+        serializer.is_valid(raise_exception=True)
+        updated = serializer.save(updated_by=request.user)
+        self._push_history(updated, before_snapshot, request.user)
+        out = SaasPlatformSettingsSerializer(updated)
+        return Response(out.data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='upload-landing-media',
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_landing_media(self, request):
+        """Загрузка файла для карусели landing. Возвращает { url }."""
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'file required'}, status=status.HTTP_400_BAD_REQUEST)
+        ext = os.path.splitext(file.name)[1] or '.bin'
+        path = f"landing/media/{timezone.now().strftime('%Y/%m')}/{uuid.uuid4().hex}{ext}"
+        saved = default_storage.save(path, file)
+        url = request.build_absolute_uri(default_storage.url(saved))
+        return Response({'url': url}, status=status.HTTP_201_CREATED)
 
 

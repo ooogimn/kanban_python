@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { accountApi, type MyAccount, type AccessMode } from '../../api/account';
 import { Link } from 'react-router-dom';
+import { marketingApi } from '../../api/marketing';
 
 // ── Хелперы ───────────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
@@ -42,7 +43,22 @@ function fmtPrice(price: string | undefined, currency: string | undefined, inter
 // ── Карточка статуса подписки (R1-S4/S5 fields) ──────────────────────────────
 function SubscriptionCard({ account }: { account: MyAccount }) {
     const status = STATUS_LABEL[account.status] ?? STATUS_LABEL.none;
-    const { period, access_mode, restrictions } = account.entitlement;
+    // Backend может вернуть временно неполный объект account (например, без entitlement),
+    // поэтому держим безопасный fallback, чтобы не ронять страницу.
+    const entitlement = account.entitlement ?? {
+        source: 'none' as const,
+        access_mode: 'limited' as AccessMode,
+        limits: {},
+        features: {},
+        restrictions: null,
+        period: {
+            start: null,
+            end: null,
+            trial_end: null,
+            days_left: null,
+        },
+    };
+    const { period, access_mode, restrictions } = entitlement;
 
     // Используем status_flags от R1-S5 (приоритет), с fallback на старые поля
     const flags = account.status_flags;
@@ -231,6 +247,12 @@ export default function SubscriptionPage() {
         retry: 1,
         enabled: !!account,
     });
+    const { data: myRequests } = useQuery({
+        queryKey: ['my-marketing-requests'],
+        queryFn: marketingApi.getMyRequests,
+        enabled: !!account,
+        retry: 1,
+    });
 
     if (loadingAccount) {
         return (
@@ -301,7 +323,7 @@ export default function SubscriptionPage() {
             </section>
 
             {/* Функции тарифа */}
-            {account.entitlement.features && Object.keys(account.entitlement.features).length > 0 && (
+            {account.entitlement?.features && Object.keys(account.entitlement.features).length > 0 && (
                 <section>
                     <h2 className="text-sm font-semibold text-white uppercase tracking-widest mb-3">
                         Функции вашего тарифа
@@ -321,6 +343,65 @@ export default function SubscriptionPage() {
                     </div>
                 </section>
             )}
+
+            <section>
+                <h2 className="text-sm font-semibold text-white uppercase tracking-widest mb-3">
+                    Обращения из AI-виджета
+                </h2>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+                    <div>
+                        <p className="text-xs text-slate-400 mb-2">Поддержка ({myRequests?.leads?.length ?? 0})</p>
+                        {myRequests?.leads?.length ? (
+                            <div className="space-y-2">
+                                {myRequests.leads.slice(0, 5).map((lead) => (
+                                    <div key={lead.id} className="rounded-lg border border-slate-700 p-3">
+                                        <p className="text-sm text-white">{lead.name} · {lead.contact}</p>
+                                        <p className="text-xs text-slate-400">{lead.created_at ? formatDate(lead.created_at) : '—'} · {lead.status || 'new'}</p>
+                                        {lead.message && <p className="text-xs text-slate-300 mt-1 whitespace-pre-wrap">{lead.message}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500">Пока нет обращений.</p>
+                        )}
+                    </div>
+
+                    <div>
+                        <p className="text-xs text-slate-400 mb-2">Отзывы на модерации ({myRequests?.reviews?.length ?? 0})</p>
+                        {myRequests?.reviews?.length ? (
+                            <div className="space-y-2">
+                                {myRequests.reviews.slice(0, 5).map((review) => (
+                                    <div key={review.id} className="rounded-lg border border-slate-700 p-3">
+                                        <p className="text-sm text-white">
+                                            {review.review_type === 'company' ? (review.company || 'Компания') : (review.author || 'Пользователь')}
+                                        </p>
+                                        <p className="text-xs text-slate-400">{review.created_at ? formatDate(review.created_at) : '—'} · {review.status || 'draft'}</p>
+                                        <p className="text-xs text-slate-300 mt-1 whitespace-pre-wrap">{review.text}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500">Пока нет отзывов.</p>
+                        )}
+                    </div>
+
+                    <div>
+                        <p className="text-xs text-slate-400 mb-2">Диалоги с AI-виджетом ({myRequests?.chats?.length ?? 0})</p>
+                        {myRequests?.chats?.length ? (
+                            <div className="space-y-2">
+                                {myRequests.chats.slice(0, 8).map((chat) => (
+                                    <div key={chat.id} className="rounded-lg border border-slate-700 p-3">
+                                        <p className="text-[11px] text-slate-400">{chat.created_at ? formatDate(chat.created_at) : '—'} · {chat.role}</p>
+                                        <p className="text-xs text-slate-200 mt-1 whitespace-pre-wrap">{chat.message}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-slate-500">Пока нет диалогов.</p>
+                        )}
+                    </div>
+                </div>
+            </section>
 
             {/* Техническая информация для дебага (только в dev) */}
             {import.meta.env.DEV && (

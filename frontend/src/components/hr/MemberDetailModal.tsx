@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { X, User, Briefcase, Banknote, Calendar, FileText, ExternalLink, Clock, Pencil, Plus } from 'lucide-react';
 import { workspaceApi } from '../../api/workspace';
-import { hrApi, type ContactTimelogItem } from '../../api/hr';
+import { hrApi, type ContactDetail, type ContactTimelogItem } from '../../api/hr';
 import type {
   EmployeeProfile,
   Department,
@@ -16,7 +16,6 @@ import type {
   LeaveCreatePayload,
   PayrollItem,
   Contact,
-  ContactDetail,
   EmployeeDocument,
   EmployeeUpdatePayload,
 } from '../../types/hr';
@@ -294,13 +293,11 @@ function HrEditTab({
 }
 
 function DocumentsTab({
-  employeeId,
   documents,
   onUpload,
   onDelete,
   isUploading,
 }: {
-  employeeId: number;
   documents: EmployeeDocument[];
   onUpload: (formData: FormData) => void;
   onDelete: (id: number) => void;
@@ -464,7 +461,7 @@ export default function MemberDetailModal({
     enabled: isOpen && !!memberId && workspaceId > 0,
   });
 
-  const { data: documents = [], refetch: refetchDocs } = useQuery({
+  const { data: documents = [] } = useQuery({
     queryKey: ['hr-employee-documents', employee?.id],
     queryFn: () => hrApi.getEmployeeDocuments(employee!.id),
     enabled: isOpen && !!employee?.id,
@@ -548,7 +545,7 @@ export default function MemberDetailModal({
     : '—');
 
   const deptMap = new Map(departments.map((d) => [d.id, d]));
-  const department = employee?.department ? deptMap.get(employee.department) : null;
+  const department = employee?.department ? deptMap.get(employee.department) : undefined;
 
   const showHRTabs = !!employee && canSeeHRTabs;
   const tabs: { id: TabId; label: string; icon: React.ReactNode; show: boolean }[] = [
@@ -653,7 +650,7 @@ export default function MemberDetailModal({
                 <div>
                   <p className="text-imperial-muted text-xs uppercase tracking-wider mb-2">Проекты</p>
                   <div className="flex flex-wrap gap-2">
-                    {(contact as ContactDetail).projects.map((p) => (
+                    {(contact as ContactDetail).projects.map((p: string | number) => (
                       <span key={p} className="px-3 py-1 rounded-lg bg-white/10 text-white text-sm">{p}</span>
                     ))}
                   </div>
@@ -845,7 +842,6 @@ export default function MemberDetailModal({
 
           {activeTab === 'documents' && employee && (
             <DocumentsTab
-              employeeId={employee.id}
               documents={documents as EmployeeDocument[]}
               onUpload={(formData) => uploadDocMutation.mutate({ empId: employee.id, formData })}
               onDelete={(id) => deleteDocMutation.mutate(id)}

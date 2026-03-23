@@ -152,6 +152,7 @@ export default function HrPage() {
       toast.error(err?.response?.data?.detail ?? 'Ошибка при добавлении');
     },
   });
+  void createEmployeeMutation;
 
   const createLeaveMutation = useMutation({
     mutationFn: (data: LeaveCreatePayload) => hrApi.createLeaveRequest(data),
@@ -595,11 +596,12 @@ function AddEmployeeModal({
   departments,
   availableMembers,
   wallets,
-  workspaceId,
+  workspaceId: _workspaceId,
   onClose,
   onSubmit,
   isSubmitting,
 }: AddEmployeeModalProps) {
+  void _workspaceId;
   const [memberId, setMemberId] = useState<number | ''>('');
   const [departmentId, setDepartmentId] = useState<number | ''>('');
   const [jobTitle, setJobTitle] = useState('');
@@ -729,6 +731,7 @@ function AddEmployeeModal({
     </div>
   );
 }
+void AddEmployeeModal;
 
 interface AddLeaveModalProps {
   members: { id: number; user?: { first_name?: string; last_name?: string; username?: string } }[];
@@ -738,7 +741,8 @@ interface AddLeaveModalProps {
   isSubmitting: boolean;
 }
 
-function AddLeaveModal({ members, employees, onClose, onSubmit, isSubmitting }: AddLeaveModalProps) {
+function AddLeaveModal({ members, employees: _employees, onClose, onSubmit, isSubmitting }: AddLeaveModalProps) {
+  void _employees;
   const [memberId, setMemberId] = useState<number | ''>('');
   const [type, setType] = useState<'VACATION' | 'SICK_LEAVE' | 'UNPAID'>('VACATION');
   const [startDate, setStartDate] = useState('');

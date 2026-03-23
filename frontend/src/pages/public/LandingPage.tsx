@@ -21,11 +21,11 @@ const techImage = '/landing/tech.jpg';
 const earlyAccessImage = '/landing/early-access.jpg';
 
 /** Видео в модалке (по клику «Войти в личный кабинет»): frontend/public/landing/demo-video.mp4 */
-const LANDING_VIDEO_SRC = '/landing/demo-video.mp4';
+const LANDING_VIDEO_SRC = '/landing/demo-video.mp4?v=2';
 /** Видео в модалке (по клику «Получить доступ»): frontend/public/landing/register-video.mp4 */
 const LANDING_REGISTER_VIDEO_SRC = '/landing/register-video.mp4';
 /** Видео на главном экране (сразу видно, автоплей со звуком): frontend/public/landing/hero-video.mp4 */
-const LANDING_HERO_VIDEO_SRC = '/landing/hero-video.mp4';
+const LANDING_HERO_VIDEO_SRC = '/landing/hero-video.mp4?v=2';
 
 /** Hero-видео: старт без звука (автоплей разрешён); через 3 с — подсказка «Включить звук»; по клику включаем звук 20% (клик = разрешённое действие браузера). */
 function HeroVideoWithVolume() {
@@ -281,11 +281,11 @@ export default function LandingPage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "Office Suite 360",
+    "name": "AntExpress",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "description": "Единое пространство для управления проектами, задачами, визуализации и совместной работы. Канбан, диаграммы Гантта, календари.",
-    "url": "https://lukinterlab.ru",
+    "url": "https://antexpress.ru",
     "offers": {
       "@type": "Offer",
       "price": "0",
@@ -297,7 +297,7 @@ export default function LandingPage() {
     <>
       <SEOMeta
         title="Управление проектами и задачами"
-        description="Office Suite 360 - единое пространство для управления проектами, задачами, визуализации и совместной работы. Канбан, диаграммы Гантта, календари."
+        description="AntExpress - единое пространство для управления проектами, задачами, визуализации и совместной работы. Канбан, диаграммы Гантта, календари."
         url="/"
       />
       <JsonLd data={jsonLd} />

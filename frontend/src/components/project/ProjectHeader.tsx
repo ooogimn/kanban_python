@@ -171,7 +171,7 @@ export default function ProjectHeader({
                     >
                       {aiShowContext ? 'Скрыть контекст' : 'Показать контекст'}
                     </button>
-                    {aiShowContext && aiResult.context && (
+                    {aiShowContext && aiResult.context != null && (
                       <pre className="mt-2 p-3 rounded-lg bg-white/5 text-xs text-imperial-muted overflow-x-auto max-h-64 overflow-y-auto">
                         {JSON.stringify(aiResult.context, null, 2)}
                       </pre>

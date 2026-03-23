@@ -13,7 +13,7 @@ export default function CookiePolicyPage() {
 
                 <p>
                     Настоящая Политика использования cookie-файлов (далее — Политика) распространяется на
-                    сервис <strong className="text-white">Office Suite 360</strong>, принадлежащий{' '}
+                    сервис <strong className="text-white">AntExpress</strong>, принадлежащий{' '}
                     <strong className="text-white">{COMPANY.shortName}</strong>{' '}
                     (ИНН {COMPANY.inn}), и устанавливает порядок использования cookie-файлов и аналогичных технологий
                     при посещении платформы.

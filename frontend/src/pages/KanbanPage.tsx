@@ -7,17 +7,14 @@ import { todoApi } from '../api/todo';
 import { timetrackingApi } from '../api/timetracking';
 import { workspaceApi } from '../api/workspace';
 import { documentsApi } from '../api/documents';
-import { KanbanItem, Column, ProjectMember, WorkItem } from '../types';
+import { KanbanItem, Column, Project, WorkItem } from '../types';
 import { FileList, CommentThread, CreateNoteModal, AttachNoteModal } from '../components/documents';
-import MemberSelector from '../components/project/MemberSelector';
 import TaskForm from '../components/TaskForm';
 import { ChecklistBlock } from '../components/todo/Checklist';
 import { useKanbanWebSocket } from '../hooks/useWebSocket';
 import toast from 'react-hot-toast';
-import { toPng, toJpeg } from 'html-to-image';
-import { jsPDF } from 'jspdf';
 import { ChevronDown, ChevronRight, GripVertical, Lock, Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
-import * as XLSX from 'xlsx-js-style';
+import { downloadCsv } from '../utils/exportCsv';
 
 /** ID виртуальной колонки «Нераспределённые» (задачи этого спринта без колонки). */
 const UNPLACED_COLUMN_ID = -1;
@@ -366,50 +363,55 @@ export default function KanbanPage() {
   }, [columns, taskSearch, taskStatusFilter, taskPriorityFilter, taskAssigneeFilter]);
 
   const exportOptions = { pixelRatio: 2, cacheBust: true };
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     const el = columnsScrollRef.current;
     if (!el) return;
     setExportLoading('pdf');
-    toPng(el, exportOptions)
-      .then((dataUrl) => {
-        const img = new Image();
-        img.onload = () => {
-          const pdf = new jsPDF({
-            orientation: img.width > img.height ? 'landscape' : 'portrait',
-            unit: 'px',
-            format: [img.width, img.height],
-          });
-          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
-          pdf.save(`${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.pdf`);
-          toast.success('Сохранено в PDF');
-        };
-        img.onerror = () => setExportLoading(null);
-        img.src = dataUrl;
-      })
-      .catch((err) => {
-        console.error('Export PDF failed', err);
-        toast.error('Не удалось сохранить PDF');
-      })
-      .finally(() => setExportLoading(null));
+    try {
+      const [{ toPng }, { jsPDF }] = await Promise.all([
+        import('html-to-image'),
+        import('jspdf'),
+      ]);
+      const dataUrl = await toPng(el, exportOptions);
+      const img = new Image();
+      img.onload = () => {
+        const pdf = new jsPDF({
+          orientation: img.width > img.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [img.width, img.height],
+        });
+        pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+        pdf.save(`${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.pdf`);
+        toast.success('Сохранено в PDF');
+      };
+      img.onerror = () => setExportLoading(null);
+      img.src = dataUrl;
+    } catch (err) {
+      console.error('Export PDF failed', err);
+      toast.error('Не удалось сохранить PDF');
+    } finally {
+      setExportLoading(null);
+    }
   }, [boardData?.name]);
 
-  const handleExportJpg = useCallback(() => {
+  const handleExportJpg = useCallback(async () => {
     const el = columnsScrollRef.current;
     if (!el) return;
     setExportLoading('jpg');
-    toJpeg(el, { ...exportOptions, quality: 0.95 })
-      .then((dataUrl) => {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.jpg`;
-        a.click();
-        toast.success('Сохранено в JPG');
-      })
-      .catch((err) => {
-        console.error('Export JPG failed', err);
-        toast.error('Не удалось сохранить JPG');
-      })
-      .finally(() => setExportLoading(null));
+    try {
+      const { toJpeg } = await import('html-to-image');
+      const dataUrl = await toJpeg(el, { ...exportOptions, quality: 0.95 });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.jpg`;
+      a.click();
+      toast.success('Сохранено в JPG');
+    } catch (err) {
+      console.error('Export JPG failed', err);
+      toast.error('Не удалось сохранить JPG');
+    } finally {
+      setExportLoading(null);
+    }
   }, [boardData?.name]);
 
   const handleExportExcel = useCallback(() => {
@@ -419,58 +421,25 @@ export default function KanbanPage() {
       high: 'Высокий',
       urgent: 'Срочный',
     };
-    const thick = { style: 'thick' as const };
     const cols = [...columns];
-    const columnNames = cols.map((c) => c.name ?? '');
     const itemsPerColumn = cols.map((c) => filteredItemsByColumn[c.id] || []);
-    const maxTasks = Math.max(1, ...itemsPerColumn.map((arr) => arr.length));
-    const rows: (string | number)[][] = [];
-    rows.push(columnNames);
-    for (let i = 0; i < maxTasks; i++) {
-      rows.push(cols.map((_, cIdx) => itemsPerColumn[cIdx][i]?.title ?? ''));
-      rows.push(
-        cols.map((_, cIdx) => {
-          const item = itemsPerColumn[cIdx][i];
-          return item?.priority ? (priorityLabel[item.priority] ?? item.priority) : '';
-        })
-      );
-      rows.push(
-        cols.map((_, cIdx) => {
-          const item = itemsPerColumn[cIdx][i];
-          if (!item) return '';
-          const start = item.start_date ?? '';
-          const end = item.due_date ?? '';
-          return start && end ? `${start} - ${end}` : start || end || '';
-        })
-      );
-      rows.push(cols.map((_, cIdx) => itemsPerColumn[cIdx][i]?.responsible_name ?? ''));
-    }
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = cols.map(() => ({ wch: 30 }));
-    for (let c = 0; c < cols.length; c++) {
-      for (let i = 0; i < maxTasks; i++) {
-        const r0 = 1 + i * 4;
-        for (let r = 0; r < 4; r++) {
-          const ref = XLSX.utils.encode_cell({ r: r0 + r, c });
-          const cell = ws[ref];
-          if (!cell) continue;
-          const isFirstRow = r === 0;
-          const isLastRow = r === 3;
-          cell.s = {
-            border: {
-              left: thick,
-              right: thick,
-              ...(isFirstRow && { top: thick }),
-              ...(isLastRow && { bottom: thick }),
-            },
-          };
-        }
+    const rows: (string | number)[][] = [['Колонка', 'Задача', 'Приоритет', 'Период', 'Ответственный']];
+    for (let cIdx = 0; cIdx < cols.length; cIdx++) {
+      const colName = cols[cIdx].name ?? '';
+      for (const item of itemsPerColumn[cIdx]) {
+        const start = item.start_date ?? '';
+        const end = item.due_date ?? '';
+        rows.push([
+          colName,
+          item.title ?? '',
+          item.priority ? (priorityLabel[item.priority] ?? item.priority) : '',
+          start && end ? `${start} - ${end}` : start || end || '',
+          item.responsible_name ?? '',
+        ]);
       }
     }
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Канбан');
-    const fileName = `${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    const fileName = `${(boardData?.name || 'kanban').replace(/[^\w\s-]/g, '')}-${Date.now()}.csv`;
+    downloadCsv(fileName, rows);
     toast.success('Файл сохранён');
   }, [columns, filteredItemsByColumn, boardData?.name]);
 
@@ -494,49 +463,54 @@ export default function KanbanPage() {
       document.exitFullscreen?.().then(() => setBoardsListFullscreen(false));
     }
   }, []);
-  const handleBoardsListExportJpg = useCallback(() => {
+  const handleBoardsListExportJpg = useCallback(async () => {
     const el = boardsListRef.current;
     if (!el) return;
     setBoardsListExportLoading('jpg');
-    toJpeg(el, { ...boardsListExportOptions, quality: 0.95 })
-      .then((dataUrl) => {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = `sprints-${Date.now()}.jpg`;
-        a.click();
-        toast.success('Сохранено в JPG');
-      })
-      .catch((err) => {
-        console.error('Export JPG failed', err);
-        toast.error('Не удалось сохранить JPG');
-      })
-      .finally(() => setBoardsListExportLoading(null));
+    try {
+      const { toJpeg } = await import('html-to-image');
+      const dataUrl = await toJpeg(el, { ...boardsListExportOptions, quality: 0.95 });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `sprints-${Date.now()}.jpg`;
+      a.click();
+      toast.success('Сохранено в JPG');
+    } catch (err) {
+      console.error('Export JPG failed', err);
+      toast.error('Не удалось сохранить JPG');
+    } finally {
+      setBoardsListExportLoading(null);
+    }
   }, []);
-  const handleBoardsListExportPdf = useCallback(() => {
+  const handleBoardsListExportPdf = useCallback(async () => {
     const el = boardsListRef.current;
     if (!el) return;
     setBoardsListExportLoading('pdf');
-    toPng(el, boardsListExportOptions)
-      .then((dataUrl) => {
-        const img = new Image();
-        img.onload = () => {
-          const pdf = new jsPDF({
-            orientation: img.width > img.height ? 'landscape' : 'portrait',
-            unit: 'px',
-            format: [img.width, img.height],
-          });
-          pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
-          pdf.save(`sprints-${Date.now()}.pdf`);
-          toast.success('Сохранено в PDF');
-        };
-        img.onerror = () => setBoardsListExportLoading(null);
-        img.src = dataUrl;
-      })
-      .catch((err) => {
-        console.error('Export PDF failed', err);
-        toast.error('Не удалось сохранить PDF');
-      })
-      .finally(() => setBoardsListExportLoading(null));
+    try {
+      const [{ toPng }, { jsPDF }] = await Promise.all([
+        import('html-to-image'),
+        import('jspdf'),
+      ]);
+      const dataUrl = await toPng(el, boardsListExportOptions);
+      const img = new Image();
+      img.onload = () => {
+        const pdf = new jsPDF({
+          orientation: img.width > img.height ? 'landscape' : 'portrait',
+          unit: 'px',
+          format: [img.width, img.height],
+        });
+        pdf.addImage(dataUrl, 'PNG', 0, 0, img.width, img.height);
+        pdf.save(`sprints-${Date.now()}.pdf`);
+        toast.success('Сохранено в PDF');
+      };
+      img.onerror = () => setBoardsListExportLoading(null);
+      img.src = dataUrl;
+    } catch (err) {
+      console.error('Export PDF failed', err);
+      toast.error('Не удалось сохранить PDF');
+    } finally {
+      setBoardsListExportLoading(null);
+    }
   }, []);
   const handleBoardsListExportExcel = useCallback(() => {
     const list = boards?.results ?? [];
@@ -547,12 +521,8 @@ export default function KanbanPage() {
       ['Название спринта', 'Проект'],
       ...filtered.map((b) => [b.name ?? '', (projects?.results ?? []).find((p) => p.id === b.project)?.name ?? '']),
     ];
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 40 }, { wch: 24 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Спринты');
-    XLSX.writeFile(wb, `sprints-${Date.now()}.xlsx`);
-    toast.success('Сохранено в Excel');
+    downloadCsv(`sprints-${Date.now()}.csv`, rows);
+    toast.success('Сохранено в CSV');
   }, [boards?.results, boardsListSearch, projects?.results]);
 
   useEffect(() => {
@@ -1059,7 +1029,7 @@ export default function KanbanPage() {
             column={editColumn}
             onClose={() => setColumnEditId(null)}
             onSubmit={(name, position, color) =>
-              updateColumnMutation.mutate({ id: columnEditId, data: { name, position, color } })
+              updateColumnMutation.mutate({ id: columnEditId, data: { name, order: position, color } })
             }
             onDelete={
               canDeleteEditColumn && editColumnItems.length === 0
@@ -1323,7 +1293,6 @@ export default function KanbanPage() {
                                                   boardId={boardId}
                                                   moveTaskMutation={moveTaskMutation}
                                                   completeTaskMutation={completeTaskMutation}
-                                                  onOpenTask={() => setSelectedItem(item)}
                                                 />
                                               </div>
                                               <div className="flex items-center gap-1 shrink-0 ml-2" aria-hidden>
@@ -1496,7 +1465,6 @@ export default function KanbanPage() {
                                                       boardId={boardId}
                                                       moveTaskMutation={moveTaskMutation}
                                                       completeTaskMutation={completeTaskMutation}
-                                                      onOpenTask={() => setSelectedItem(item)}
                                                     />
                                                   </div>
                                                   <div className="flex items-center gap-1 shrink-0 ml-2" aria-hidden>
@@ -1696,7 +1664,7 @@ export default function KanbanPage() {
       {selectedItem && boardData?.project && (
         <TaskDetailModal
           item={selectedItem}
-          boardId={boardId ?? undefined}
+          boardId={boardId ? Number(boardId) : undefined}
           columns={boardData?.columns}
           projectId={boardData.project}
           projects={projects?.results ?? []}
@@ -1772,7 +1740,6 @@ function TaskListRowActions({
   boardId,
   moveTaskMutation,
   completeTaskMutation,
-  onOpenTask,
 }: {
   item: KanbanItem;
   /** Колонка, в которой сейчас задача (для логики «в работе» по position). */
@@ -1781,7 +1748,6 @@ function TaskListRowActions({
   boardId: string | undefined;
   moveTaskMutation: { mutate: (v: { workitemId: number; targetColumnId: number; newOrder: number }) => void; isPending: boolean };
   completeTaskMutation: { mutate: (id: number) => void; isPending: boolean };
-  onOpenTask: () => void;
 }) {
   const queryClient = useQueryClient();
   const workitemId = item.id;
@@ -1899,7 +1865,7 @@ function KanbanColumn({
   onMoveTask?: (workitemId: number, targetColumnId: number, newOrder: number) => void;
   isMoveTaskPending?: boolean;
   /** Ручка перетаскивания колонки (для изменения порядка колонок) */
-  columnDragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  columnDragHandleProps?: React.HTMLAttributes<HTMLDivElement> | null;
 }) {
   const sortedItems = [...items].sort((a, b) => a.sort_order - b.sort_order);
   const isSystemColumn = column.system_type && column.system_type !== 'other';
@@ -2285,7 +2251,7 @@ function ZoneSelect({
 
 function AddColumnModal({
   boardId: _boardId,
-  columns,
+  columns: _columns,
   onClose,
   onSubmit,
   isSubmitting,
@@ -2297,6 +2263,7 @@ function AddColumnModal({
   isSubmitting: boolean;
 }) {
   void _boardId;
+  void _columns;
   const [name, setName] = useState('');
   const [zoneIndex, setZoneIndex] = useState(1);
   const position = COLUMN_ZONES[zoneIndex]?.position ?? 3000;
@@ -2456,7 +2423,7 @@ function AddTaskModal({
   columnId: number;
   columns: Column[];
   projectId: number;
-  projects: { id: number; name: string; members?: ProjectMember[] }[];
+  projects: Project[] | { results?: Project[] };
   workspaceId?: number;
   onClose: () => void;
   onSubmit: (data: Partial<WorkItem>) => void;
@@ -2470,7 +2437,7 @@ function AddTaskModal({
     queryKey: ['kanban-boards', workspaceId, projectId],
     queryFn: () =>
       kanbanApi.getBoards({
-        ...(workspaceId != null && workspaceId !== '' ? { workspace_id: Number(workspaceId) } : {}),
+        ...(workspaceId != null ? { workspace_id: Number(workspaceId) } : {}),
         project: projectId,
       }),
     enabled: projectId > 0,
@@ -2576,7 +2543,7 @@ export function TaskDetailModal({
   /** Колонки доски — если есть, Старт/Готово работают через moveTask (как на карточке). */
   columns?: BoardColumn[];
   projectId: number;
-  projects: { id: number; name: string; members?: ProjectMember[] }[];
+  projects: Project[] | { results?: Project[] };
   /** ID текущего пространства — для создания записки без проекта (из вкладки «Записки»). */
   workspaceId?: number;
   onClose: () => void;
@@ -2585,6 +2552,7 @@ export function TaskDetailModal({
   onTaskUpdate?: (data: Partial<KanbanItem> & Partial<WorkItem>) => void;
   onDeleteTask?: () => void;
 }) {
+  const projectList = Array.isArray(projects) ? projects : (projects.results ?? []);
   const queryClient = useQueryClient();
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [createNoteOpen, setCreateNoteOpen] = useState(false);
@@ -2628,7 +2596,7 @@ export function TaskDetailModal({
     queryKey: ['kanban-boards', workspaceId, projectId],
     queryFn: () =>
       kanbanApi.getBoards({
-        ...(workspaceId != null && workspaceId !== '' ? { workspace_id: Number(workspaceId) } : {}),
+        ...(workspaceId != null ? { workspace_id: Number(workspaceId) } : {}),
         project: projectId,
       }),
     enabled: projectId > 0,
@@ -2857,7 +2825,7 @@ export function TaskDetailModal({
                 workspaceId={workspaceId}
                 defaultProjectId={projectId > 0 ? projectId : null}
                 defaultWorkitemId={item.id}
-                projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                projects={projectList.map((p: Project) => ({ id: p.id, name: p.name }))}
                 onSuccess={() => {
                   queryClient.invalidateQueries({ queryKey: ['wiki-pages', 'workitem', item.id] });
                 }}

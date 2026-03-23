@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { getPublicSiteUrl, toAbsoluteUrl } from '../lib/seo';
 
 interface SEOMetaProps {
     title: string;
@@ -11,7 +12,6 @@ interface SEOMetaProps {
 }
 
 const DEFAULT_IMAGE = '/og-image.jpg'; // We can replace this with a real default image later
-const DEFAULT_URL = 'https://lukinterlab.ru'; // Base domain, adjust as needed
 
 /**
  * Reusable SEO Meta Component
@@ -26,17 +26,19 @@ export function SEOMeta({
     noindex = false,
 }: SEOMetaProps) {
     // Add a suffix to the title
-    const fullTitle = `${title} | Office Suite 360`;
-    const fullUrl = url ? `${DEFAULT_URL}${url}` : DEFAULT_URL;
+    const fullTitle = `${title} | AntExpress`;
+    const siteUrl = getPublicSiteUrl();
+    const fullUrl = url ? toAbsoluteUrl(url) : siteUrl;
     // Ensure image URL is absolute
-    const fullImage = image.startsWith('http') ? image : `${DEFAULT_URL}${image}`;
+    const fullImage = toAbsoluteUrl(image || DEFAULT_IMAGE);
 
     return (
         <Helmet>
             {/* Standard Meta Tags */}
             <title>{fullTitle}</title>
             <meta name="description" content={description} />
-            {noindex && <meta name="robots" content="noindex, nofollow" />}
+            <link rel="canonical" href={fullUrl} />
+            <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow'} />
 
             {/* OpenGraph / Facebook */}
             <meta property="og:type" content={type} />
@@ -44,6 +46,7 @@ export function SEOMeta({
             <meta property="og:title" content={fullTitle} />
             <meta property="og:description" content={description} />
             <meta property="og:image" content={fullImage} />
+            <meta property="og:site_name" content="AntExpress" />
 
             {/* Twitter */}
             <meta name="twitter:card" content="summary_large_image" />

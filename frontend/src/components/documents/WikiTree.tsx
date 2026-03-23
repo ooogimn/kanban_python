@@ -88,12 +88,6 @@ export default function WikiTree({ projectId, scope, currentPageId, rootId }: Wi
     [scopeKey, expandedPages]
   );
 
-  const basePath =
-    scope === 'personal' && rootId
-      ? `/documents/notebook/${rootId}`
-      : scope === 'personal'
-        ? '/documents'
-        : '';
   const pageUrl = (page: WikiPage) =>
     scope === 'personal'
       ? rootId
@@ -106,8 +100,6 @@ export default function WikiTree({ projectId, scope, currentPageId, rootId }: Wi
         ? `/documents/notebook/${rootId}/page/new${parentId > 0 ? `?parent=${parentId}` : ''}`
         : `/documents/page/new${parentId > 0 ? `?parent=${parentId}` : ''}`
       : `/projects/${projectId}/wiki/page/new${parentId > 0 ? `?parent=${parentId}` : ''}`;
-  const listUrl = scope === 'personal' ? (rootId ? `/documents/notebook/${rootId}` : '/documents') : `/projects/${projectId}?tab=wiki`;
-
   const renderPage = (page: WikiPage, level: number = 0) => {
     const hasChildren = page.children && page.children.length > 0;
     const isExpanded = expandedPages.has(page.id);

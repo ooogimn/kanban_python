@@ -25,7 +25,7 @@ export interface HireEmployeeWizardProps {
   /** Контакты (персонал) — для выбора из списка контактов */
   contacts: Contact[];
   /** Участники workspace без EmployeeProfile — директор и др., кто ещё не в контактах */
-  availableMembers: { id: number; user?: { first_name?: string; last_name?: string; username?: string; email?: string } }[];
+  availableMembers: { id: number; user?: { id?: number; first_name?: string; last_name?: string; username?: string; email?: string } }[];
   employees: EmployeeProfile[];
   workspaceMembers: { id: number; user?: { id?: number } }[];
   wallets: { id: number; name: string; workspace: number | null }[];
@@ -166,7 +166,7 @@ export default function HireEmployeeWizard({
 
   const resetWizard = () => {
     setStep(1);
-    setMode('existing');
+    setMode('from_contacts');
     setMemberId('');
     setInviteEmail('');
     setInviteFirstName('');

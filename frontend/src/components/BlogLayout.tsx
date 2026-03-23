@@ -4,6 +4,8 @@ import { useSidebarStore } from '../store/sidebarStore';
 import { useThemeStore, applyThemeToDom } from '../store/themeStore';
 import { LEGAL_LINKS } from '../constants/legalLinks';
 import { openCookieConsentSettings } from '../lib/cookieConsent';
+import BrandWordmark from './BrandWordmark';
+import PublicIntegrationsHead from './PublicIntegrationsHead';
 
 const publicNavItems = [
   { name: 'Блог', href: '/blog', icon: '📰' },
@@ -28,6 +30,7 @@ export default function BlogLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-imperial-bg dark:text-imperial-text font-sans antialiased">
+      <PublicIntegrationsHead />
       <div
         role="button"
         tabIndex={0}
@@ -46,10 +49,12 @@ export default function BlogLayout() {
             to="/landing"
             className={`flex items-center gap-3 mb-6 ${collapsed ? 'justify-center' : ''}`}
           >
-            <img src="/OS_LOGO.png" alt="OS LukintrLab" className="w-10 h-10 rounded-xl object-contain shrink-0 bg-white/10" />
+            <img src="/OS_LOGO.png?v=20260320" alt="AntExpress" className="w-10 h-10 rounded-xl object-contain shrink-0 bg-white/10" />
             {!collapsed && (
               <div className="min-w-0">
-                <h1 className="font-bold text-white tracking-tight leading-none text-lg">OS LukintrLab</h1>
+                <h1 className="font-bold text-white tracking-tight leading-none text-lg">
+                  <BrandWordmark />
+                </h1>
                 <span className="text-[10px] uppercase tracking-widest text-imperial-gold font-semibold">Блог</span>
               </div>
             )}

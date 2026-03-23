@@ -20,6 +20,7 @@ import OnboardingWizard from './onboarding/OnboardingWizard';
 import { LEGAL_LINKS } from '../constants/legalLinks';
 import { openCookieConsentSettings } from '../lib/cookieConsent';
 import { accountApi } from '../api/account';
+import BrandWordmark from './BrandWordmark';
 
 type NavItem = {
   name: string;
@@ -152,11 +153,11 @@ export default function Layout({ overrideContent }: LayoutProps = {}) {
             to="/landing"
             className={`flex items-center gap-3 mb-6 ${collapsed ? 'justify-center' : ''}`}
           >
-            <img src="/OS_LOGO.png" alt="OS LukintrLab" className="w-10 h-10 rounded-xl object-contain shrink-0 bg-white/10" />
+            <img src="/OS_LOGO.png?v=20260320" alt="AntExpress" className="w-10 h-10 rounded-xl object-contain shrink-0 bg-white/10" />
             {!collapsed && (
               <div className="min-w-0">
                 <h1 className="font-bold text-white tracking-tight leading-none text-lg">
-                  OS LukintrLab
+                  <BrandWordmark />
                 </h1>
                 <span className="text-[10px] uppercase tracking-widest text-imperial-gold font-semibold">
                   Мониторинг и задачи

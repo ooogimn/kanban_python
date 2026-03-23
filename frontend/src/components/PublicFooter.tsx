@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { COMPANY } from '../lib/companyInfo';
 import { openCookieConsentSettings } from '../lib/cookieConsent';
+import BrandWordmark from './BrandWordmark';
 
 /**
  * PublicFooter — футер для всех публичных страниц (лендинг, блог, юр. страницы).
@@ -21,8 +22,8 @@ export default function PublicFooter() {
                     {/* Колонка 1: О компании */}
                     <div>
                         <div className="flex items-center gap-2 mb-3">
-                            <img src="/OS_LOGO.png" alt="" className="w-7 h-7 rounded-md object-contain bg-white/10" />
-                            <span className="font-bold text-white text-sm">Office Suite 360</span>
+                            <img src="/OS_LOGO.png?v=20260320" alt="" className="w-7 h-7 rounded-md object-contain bg-white/10" />
+                            <BrandWordmark className="font-bold text-sm" />
                         </div>
                         <p className="text-xs text-imperial-muted leading-relaxed mb-3">
                             Офисная платформа «всё-в-одном»: задачи, Kanban, Gantt, HR, финансы и ИИ-агенты.

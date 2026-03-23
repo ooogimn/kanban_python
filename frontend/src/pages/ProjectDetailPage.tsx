@@ -570,7 +570,7 @@ export default function ProjectDetailPage() {
                   onView={setCalendarView}
                   date={calendarDate}
                   onNavigate={setCalendarDate}
-                  onSelectSlot={({ start, end }) => {
+                  onSelectSlot={({ start, end }: { start: Date; end: Date }) => {
                     setCalendarSelectedEvent(null);
                     setCalendarSlotStart(start);
                     setCalendarSlotEnd(end);

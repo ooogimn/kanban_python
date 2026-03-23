@@ -18,8 +18,8 @@ export const COMPANY = {
   phone: '+7 993 919 75 75',
   phoneTel: '+79939197575',
   email: 'LukInterLab@gmail.com',
-  siteUrl: 'https://lukinterlab.ru/',
-  siteDomain: 'www.LukInterLab.ru',
+  siteUrl: 'https://antexpress.ru/',
+  siteDomain: 'www.antexpress.ru',
   telegramUrl: 'https://t.me/LukInterLab',
   telegramHandle: '@LukInterLab',
 

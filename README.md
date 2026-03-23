@@ -1,6 +1,12 @@
 Lsy
 <http://localhost:5173/login>
 
+root
+05011975
+81.177.141.122
+22
+ssh -p 22 root@81.177.141.122
+
 Достаточно: правки → git add . → git commit -m "..." → git push origin main.
 
 1. git add, git commit, git push
@@ -44,7 +50,7 @@ pip install -r requirements.txt
 python manage.py makemigrations
 python manage.py migrate
 python manage.py check
-python manage.py runserver 8020
+python manage.py runserver
 ```
 
 ```bash   frontend

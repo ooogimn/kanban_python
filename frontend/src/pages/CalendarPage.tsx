@@ -6,7 +6,6 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import { calendarApi, type CalendarFeedItem } from '../api/calendar';
 import { todoApi } from '../api/todo';
@@ -17,6 +16,7 @@ import CalendarEventModal from '../components/CalendarEventModal';
 import { TaskDetailModal } from './KanbanPage';
 import toast from 'react-hot-toast';
 import 'moment/locale/ru';
+import { downloadCsv } from '../utils/exportCsv';
 
 moment.locale('ru');
 const localizer = momentLocalizer(moment);
@@ -290,12 +290,8 @@ export default function CalendarPage() {
         item.end ?? '',
       ]),
     ];
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 40 }, { wch: 22 }, { wch: 22 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Календарь');
-    XLSX.writeFile(wb, `calendar-${Date.now()}.xlsx`);
-    toast.success('Сохранено в Excel');
+    downloadCsv(`calendar-${Date.now()}.csv`, rows);
+    toast.success('Сохранено в CSV');
   }, [feedItems]);
   const handleFullscreen = useCallback(() => {
     const el = calendarPageRef.current;

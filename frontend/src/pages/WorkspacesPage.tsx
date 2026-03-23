@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, Link } from 'react-router-dom';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import * as XLSX from 'xlsx-js-style';
 import { Maximize2, Minimize2, LayoutGrid, List } from 'lucide-react';
 import { workspaceApi } from '../api/workspace';
 import { authApi } from '../api/auth';
 import { Workspace } from '../types';
 import WorkspaceModal from '../components/WorkspaceModal';
 import toast from 'react-hot-toast';
+import { downloadCsv } from '../utils/exportCsv';
 
 const ROLE_LABELS: Record<string, string> = {
   owner: 'Владелец',
@@ -96,12 +96,8 @@ export default function WorkspacesPage() {
   const handleExportExcel = useCallback(() => {
     const rows: (string | number)[][] = [['Название', 'Описание', 'Проектов', 'Участников']];
     filteredWorkspaces.forEach((w) => rows.push([w.name ?? '', w.description ?? '', w.projects_count ?? 0, w.members_count ?? 0]));
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 30 }, { wch: 40 }, { wch: 10 }, { wch: 12 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Пространства');
-    XLSX.writeFile(wb, `workspaces-${Date.now()}.xlsx`);
-    toast.success('Сохранено в Excel');
+    downloadCsv(`workspaces-${Date.now()}.csv`, rows);
+    toast.success('Сохранено в CSV');
   }, [filteredWorkspaces]);
   const handleFullscreen = useCallback(() => {
     if (!pageRef.current) return;

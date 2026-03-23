@@ -423,3 +423,21 @@ textarea::placeholder {
 .blog-quill-dark .ql-toolbar .ql-picker-item {
   color: #0f172a;
 }
+
+.blog-quill-dark .quill {
+  background-color: #334155;
+}
+
+.blog-quill-dark .ql-container.ql-snow {
+  border-color: #475569;
+  min-height: 220px;
+}
+
+.blog-quill-dark .ql-editor {
+  min-height: 220px;
+  color: #ffffff;
+}
+
+.blog-quill-dark .ql-editor.ql-blank::before {
+  color: rgba(226, 232, 240, 0.6);
+}

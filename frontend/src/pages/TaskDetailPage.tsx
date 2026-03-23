@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { todoApi } from '../api/todo';
 import { mindmapsApi } from '../api/mindmaps';
 import { FileList, CommentThread } from '../components/documents';
-import { useQuery } from '@tanstack/react-query';
 import TaskModal from '../components/TaskModal';
 import TaskActivityLog from '../components/TaskActivityLog';
 import TaskTimer from '../components/TaskTimer';
@@ -29,7 +28,7 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const taskId = id ? Number(id) : 0;
-  const [activeTab, setActiveTab] = useState<'overview' | 'files' | 'comments' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'files' | 'comments' | 'activity' | 'maps'>('overview');
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const { data: task, isLoading } = useQuery({
@@ -79,7 +78,7 @@ export default function TaskDetailPage() {
     return <div className="text-center py-12">Задача не найдена</div>;
   }
 
-  const projects = projectsData?.results ?? [];
+  const projects = Array.isArray(projectsData) ? projectsData : (projectsData?.results ?? []);
 
   return (
     <div className="space-y-6">

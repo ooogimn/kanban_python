@@ -18,6 +18,31 @@ const CONTENT_TYPES = [
   { value: 'html', label: 'HTML' },
 ];
 
+function FormAccordion({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="rounded-lg border border-slate-700 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-slate-700/40 hover:bg-slate-700/60 transition-colors"
+      >
+        <span className="text-sm text-slate-200 font-medium">{title}</span>
+        <span className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+      {open && <div className="p-3 space-y-4">{children}</div>}
+    </section>
+  );
+}
+
 function AdModal({
   ad,
   onClose,
@@ -76,8 +101,8 @@ function AdModal({
       html_code: htmlCode,
       link: link.trim() || undefined,
       is_active: isActive,
-      width: width ? parseInt(width, 10) : null,
-      height: height ? parseInt(height, 10) : null,
+      width: width ? Number(width) : null,
+      height: height ? Number(height) : null,
       sort_order: sortOrder,
     };
     if (imageFile || videoFile) {
@@ -103,138 +128,146 @@ function AdModal({
           {ad ? 'Редактировать объявление' : 'Создать объявление'}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">Название *</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+          <FormAccordion title="Основное" defaultOpen>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Слот</label>
-              <select
-                value={slot}
-                onChange={(e) => setSlot(e.target.value)}
-                className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-              >
-                {SLOT_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-1">Тип контента</label>
-              <select
-                value={contentType}
-                onChange={(e) => setContentType(e.target.value)}
-                className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-              >
-                {CONTENT_TYPES.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {contentType === 'image' && (
-            <div>
-              <label className="block text-sm text-slate-400 mb-1">Изображение</label>
+              <label className="block text-sm text-slate-400 mb-1">Название *</label>
               <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
-                className="w-full text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-red-900/50 file:text-red-200"
-              />
-              {ad?.image_url && !imageFile && (
-                <p className="text-xs text-slate-500 mt-1">Текущее: загружено (превью в списке)</p>
-              )}
-            </div>
-          )}
-          {contentType === 'video' && (
-            <div>
-              <label className="block text-sm text-slate-400 mb-1">Видео</label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
-                className="w-full text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-red-900/50 file:text-red-200"
-              />
-              {ad?.video_url && !videoFile && (
-                <p className="text-xs text-slate-500 mt-1">Текущее: загружено</p>
-              )}
-            </div>
-          )}
-          {contentType === 'html' && (
-            <div>
-              <label className="block text-sm text-slate-400 mb-1">HTML-код</label>
-              <textarea
-                value={htmlCode}
-                onChange={(e) => setHtmlCode(e.target.value)}
-                rows={4}
-                className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2 font-mono text-sm"
-                placeholder="<div>...</div> или вставка видео/текста"
-              />
-            </div>
-          )}
-          <div>
-            <label className="block text-sm text-slate-400 mb-1">Ссылка</label>
-            <input
-              type="url"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-              placeholder="https://..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-slate-400 mb-1">Ширина (px)</label>
-              <input
-                type="number"
-                min={0}
-                value={width}
-                onChange={(e) => setWidth(e.target.value)}
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Слот</label>
+                <select
+                  value={slot}
+                  onChange={(e) => setSlot(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                >
+                  {SLOT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Тип контента</label>
+                <select
+                  value={contentType}
+                  onChange={(e) => setContentType(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                >
+                  {CONTENT_TYPES.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </FormAccordion>
+
+          <FormAccordion title="Контент" defaultOpen>
+            {contentType === 'image' && (
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Изображение</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-red-900/50 file:text-red-200"
+                />
+                {ad?.image_url && !imageFile && (
+                  <p className="text-xs text-slate-500 mt-1">Текущее: загружено (превью в списке)</p>
+                )}
+              </div>
+            )}
+            {contentType === 'video' && (
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Видео</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-slate-300 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-red-900/50 file:text-red-200"
+                />
+                {ad?.video_url && !videoFile && (
+                  <p className="text-xs text-slate-500 mt-1">Текущее: загружено</p>
+                )}
+              </div>
+            )}
+            {contentType === 'html' && (
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">HTML-код</label>
+                <textarea
+                  value={htmlCode}
+                  onChange={(e) => setHtmlCode(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2 font-mono text-sm"
+                  placeholder="<div>...</div> или вставка видео/текста"
+                />
+              </div>
+            )}
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Высота (px)</label>
+              <label className="block text-sm text-slate-400 mb-1">Ссылка</label>
               <input
-                type="number"
-                min={0}
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
+                type="url"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
                 className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                placeholder="https://..."
               />
             </div>
-          </div>
-          <div className="flex flex-wrap gap-4 items-center">
-            <div>
-              <label className="block text-sm text-slate-400 mb-1">Порядок</label>
-              <input
-                type="number"
-                min={0}
-                value={sortOrder}
-                onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
-                className="w-24 rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
-              />
+          </FormAccordion>
+
+          <FormAccordion title="Параметры показа" defaultOpen={false}>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Ширина (px)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={width}
+                  onChange={(e) => setWidth(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Высота (px)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                />
+              </div>
             </div>
-            <label className="flex items-center gap-2 text-slate-300 pt-6">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="rounded"
-              />
-              Включено
-            </label>
-          </div>
+            <div className="flex flex-wrap gap-4 items-center">
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Порядок</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
+                  className="w-24 rounded-lg border border-slate-600 bg-slate-700 text-white px-3 py-2"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-slate-300 pt-6">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="rounded"
+                />
+                Включено
+              </label>
+            </div>
+          </FormAccordion>
           <div className="flex gap-2 pt-4">
             <button
               type="submit"

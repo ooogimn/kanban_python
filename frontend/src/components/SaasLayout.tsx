@@ -9,6 +9,7 @@ const nav = [
   { name: 'Пользователи', href: '/saas-admin/users' },
   { name: 'Блог', href: '/saas-admin/blog' },
   { name: 'Реклама', href: '/saas-admin/ads' },
+  { name: 'Интеграции', href: '/saas-admin/integrations' },
   { name: 'Админка', href: getDjangoAdminUrl(), external: true },
 ];
 

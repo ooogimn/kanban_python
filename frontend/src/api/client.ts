@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosHeaders } from 'axios';
 import { AuthTokens } from '../types';
 import { useUpgradeModalStore } from '../store/upgradeModalStore';
 
@@ -23,11 +23,12 @@ class ApiClient {
     // Request interceptor - добавляем токен
     this.client.interceptors.request.use(
       (config) => {
-        // Если отправляем FormData (например, логотип проекта), убираем json заголовок
+        // Если отправляем FormData, не задаём Content-Type вручную:
+        // браузер сам поставит multipart/form-data с корректным boundary.
         if (config.data instanceof FormData) {
-          config.headers = config.headers ?? {};
-          delete (config.headers as any)['Content-Type'];
-          (config.headers as any)['Content-Type'] = 'multipart/form-data';
+          const headers = AxiosHeaders.from(config.headers);
+          headers.delete('Content-Type');
+          config.headers = headers;
         }
         const token = localStorage.getItem('access_token');
         if (token) {

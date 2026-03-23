@@ -220,7 +220,7 @@ export default function UpgradePage() {
     const [pendingPlanId, setPendingPlanId] = useState<number | null>(null);
     const [payError, setPayError] = useState<string | null>(null);
 
-    const { mutate: startPayment, isPending: yookassaPending } = useMutation({
+    const { mutate: startPayment } = useMutation({
         mutationFn: (planId: number) =>
             accountApi.createPaymentIntent({ plan_id: planId }),
         onSuccess: (data) => {

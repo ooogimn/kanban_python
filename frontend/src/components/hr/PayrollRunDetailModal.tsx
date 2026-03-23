@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { X, Pencil, Trash2 } from 'lucide-react';
 import { hrApi } from '../../api/hr';
-import type { PayrollRun, PayrollItem } from '../../types/hr';
+import type { PayrollItem } from '../../types/hr';
 
 interface PayrollRunDetailModalProps {
   runId: number | null;
@@ -32,7 +32,7 @@ export function PayrollRunDetailModal({ runId, onClose, workspaceId, canEdit }: 
   const updateItemMutation = useMutation({
     mutationFn: (params: { itemId: number; net_amount: string }) =>
       hrApi.updatePayrollItem(params.itemId, { net_amount: params.net_amount }),
-    onSuccess: (_, { itemId }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hr-payroll-run', runId] });
       queryClient.invalidateQueries({ queryKey: ['hr-payroll-runs', workspaceId] });
       setEditingItemId(null);

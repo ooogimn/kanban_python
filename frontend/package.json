@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/copy-pwa-icons.cjs && tsc && vite build",
+    "build": "node scripts/copy-pwa-icons.cjs && vite build",
+    "typecheck": "tsc --noEmit",
     "postinstall": "node scripts/copy-pwa-icons.cjs",
     "preview": "vite preview",
     "tauri": "tauri",

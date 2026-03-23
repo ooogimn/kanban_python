@@ -101,12 +101,12 @@ export default function BlogPostPage() {
     "@type": "BlogPosting",
     "headline": metaTitle,
     "description": metaDescription,
-    "image": absImgUrl || "https://lukinterlab.ru/og-image.jpg",
+    "image": absImgUrl || "https://antexpress.ru/og-image.jpg",
     "datePublished": post.published_at,
     "author": {
       "@type": "Organization",
-      "name": "Office Suite 360",
-      "url": "https://lukinterlab.ru"
+      "name": "AntExpress",
+      "url": "https://antexpress.ru"
     }
   };
 

@@ -57,6 +57,12 @@ export default function WorkspacesPage() {
   }, [searchParams, setSearchParams]);
 
   const workspaces = workspacesData?.results ?? [];
+  const canDeleteWorkspace = (workspace: Workspace) => {
+    if (profile?.is_superuser === true) return true;
+    if (workspace.user_role !== 'owner') return false;
+    if (profile?.personal_workspace_id != null && workspace.id === profile.personal_workspace_id) return false;
+    return workspaces.length > 1;
+  };
   const filteredWorkspaces = searchQuery.trim()
     ? workspaces.filter((w) => w.name?.toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : workspaces;
@@ -180,7 +186,7 @@ export default function WorkspacesPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-4">
                 <button type="button" onClick={() => { setSelectedWorkspace(workspace); setModalOpen(true); }} className="p-1.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" title="Редактировать">✏️</button>
-                {workspace.user_role === 'owner' && <button type="button" onClick={() => handleDelete(workspace)} className="p-1.5 text-slate-500 hover:text-red-600" title="Удалить">🗑️</button>}
+                {canDeleteWorkspace(workspace) && <button type="button" onClick={() => handleDelete(workspace)} className="p-1.5 text-slate-500 hover:text-red-600" title="Удалить">🗑️</button>}
                 <Link to={`/workspaces/${workspace.id}`} className="px-3 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 text-sm">Открыть</Link>
               </div>
             </li>
@@ -192,6 +198,7 @@ export default function WorkspacesPage() {
             <WorkspaceCard
               key={workspace.id}
               workspace={workspace}
+              canDelete={canDeleteWorkspace(workspace)}
               onEdit={() => {
                 setSelectedWorkspace(workspace);
                 setModalOpen(true);
@@ -216,10 +223,12 @@ export default function WorkspacesPage() {
 
 function WorkspaceCard({
   workspace,
+  canDelete,
   onEdit,
   onDelete,
 }: {
   workspace: Workspace;
+  canDelete: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -248,7 +257,7 @@ function WorkspaceCard({
           >
             ✏️
           </button>
-          {workspace.user_role === 'owner' && (
+          {canDelete && (
             <button
               onClick={onDelete}
               className="p-1 text-slate-500 hover:text-red-600 dark:text-slate-400"

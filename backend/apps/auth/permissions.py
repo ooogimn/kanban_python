@@ -100,6 +100,8 @@ class IsWorkspaceMember(permissions.BasePermission):
                 workspace_id=workspace_id,
                 user=request.user
             )
+            if request.method not in permissions.SAFE_METHODS and membership.role == WorkspaceMember.ROLE_VIEWER:
+                return False
             return True
         except WorkspaceMember.DoesNotExist:
             # Если workspace указан, но пользователь не в нем - разрешаем,

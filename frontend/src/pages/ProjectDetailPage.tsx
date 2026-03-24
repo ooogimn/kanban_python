@@ -9,7 +9,7 @@ import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
 import { analyticsApi } from '../api/analytics';
 import { ganttApi } from '../api/gantt';
-import { calendarApi } from '../api/calendar';
+import { calendarApi, type CalendarFeedItem } from '../api/calendar';
 import { kanbanApi } from '../api/kanban';
 import { coreApi } from '../api/core';
 import { mindmapsApi } from '../api/mindmaps';
@@ -187,7 +187,7 @@ export default function ProjectDetailPage() {
     queryFn: () => {
       const start = moment(calendarDate).startOf('month').format('YYYY-MM-DD');
       const end = moment(calendarDate).endOf('month').format('YYYY-MM-DD');
-      return calendarApi.getEventsRange(start, end, projectId);
+      return calendarApi.getFeed(start, end, { projectId });
     },
     enabled: projectId > 0 && activeTab === 'calendar',
   });
@@ -228,15 +228,24 @@ export default function ProjectDetailPage() {
     onError: () => toast.error('Ошибка при удалении зависимости'),
   });
 
-  const calendarCreateMutation = useMutation({
+  const calendarCreateTaskMutation = useMutation({
     mutationFn: (data: Partial<CalendarEvent> & { title: string; start_date: string; end_date: string }) =>
-      calendarApi.createEvent(data),
+      todoApi.createTask({
+        title: data.title,
+        description: data.description ?? '',
+        project: projectId,
+        start_date: data.start_date?.split('T')[0],
+        due_date: data.end_date?.split('T')[0],
+        status: 'todo',
+        priority: 'medium',
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
-      toast.success('Событие создано');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      toast.success('Задача создана');
       setCalendarModalOpen(false);
     },
-    onError: () => toast.error('Ошибка при создании события'),
+    onError: () => toast.error('Ошибка при создании задачи'),
   });
 
   const calendarUpdateMutation = useMutation({
@@ -284,13 +293,16 @@ export default function ProjectDetailPage() {
     return <div className="text-center py-12">Проект не найден</div>;
   }
 
+  const allProjects = projectsData?.results ?? [];
+  const canDeleteProject = allProjects.length > 1;
+
   return (
     <div className="space-y-6">
 
       <ProjectHeader
         project={project}
         onEdit={() => setEditModalOpen(true)}
-        onDelete={handleDelete}
+        onDelete={canDeleteProject ? handleDelete : undefined}
         isDeleting={deleteMutation.isPending}
       />
 
@@ -555,12 +567,12 @@ export default function ProjectDetailPage() {
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 min-h-[500px]">
                 <Calendar
                   localizer={localizer}
-                  events={(Array.isArray(calendarEventsData) ? calendarEventsData : (calendarEventsData as { results?: CalendarEvent[] })?.results ?? []).map((ev) => ({
-                    id: ev.id!,
+                  events={(Array.isArray(calendarEventsData) ? calendarEventsData : []).map((ev) => ({
+                    id: ev.id,
                     title: ev.title,
-                    start: new Date(ev.start_date),
-                    end: new Date(ev.end_date),
-                    allDay: ev.all_day,
+                    start: new Date(ev.start),
+                    end: new Date(ev.end),
+                    allDay: ev.allDay,
                     resource: ev,
                   }))}
                   startAccessor="start"
@@ -576,11 +588,20 @@ export default function ProjectDetailPage() {
                     setCalendarSlotEnd(end);
                     setCalendarModalOpen(true);
                   }}
-                  onSelectEvent={(ev: { resource: CalendarEvent }) => {
-                    setCalendarSelectedEvent(ev.resource);
-                    setCalendarSlotStart(undefined);
-                    setCalendarSlotEnd(undefined);
-                    setCalendarModalOpen(true);
+                  onSelectEvent={(ev: { resource: CalendarFeedItem }) => {
+                    const item = ev.resource;
+                    if (item.is_task && item.workitem_id) {
+                      navigate(`/tasks/${item.workitem_id}`);
+                      return;
+                    }
+                    if (item.event_id != null) {
+                      calendarApi.getEvent(item.event_id).then((event) => {
+                        setCalendarSelectedEvent(event);
+                        setCalendarSlotStart(undefined);
+                        setCalendarSlotEnd(undefined);
+                        setCalendarModalOpen(true);
+                      }).catch(() => toast.error('Не удалось загрузить событие'));
+                    }
                   }}
                   selectable
                   messages={{
@@ -607,11 +628,11 @@ export default function ProjectDetailPage() {
                     if (calendarSelectedEvent?.id) {
                       calendarUpdateMutation.mutate({ id: calendarSelectedEvent.id, data });
                     } else {
-                      calendarCreateMutation.mutate(data);
+                      calendarCreateTaskMutation.mutate(data);
                     }
                   }}
                   onDelete={calendarSelectedEvent?.id ? () => calendarDeleteMutation.mutate(calendarSelectedEvent!.id!) : undefined}
-                  isSubmitting={calendarCreateMutation.isPending || calendarUpdateMutation.isPending}
+                  isSubmitting={calendarCreateTaskMutation.isPending || calendarUpdateMutation.isPending}
                 />
               </div>
             )}

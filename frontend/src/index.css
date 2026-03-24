@@ -234,6 +234,13 @@ textarea::placeholder {
   border-color: #e2e8f0;
 }
 
+/* Календарь: воскресенье в шапке — красный акцент (Вс) */
+.rbc-month-header .rbc-header:first-child {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
 .rbc-today {
   background-color: #f0f9ff;
 }
@@ -284,6 +291,12 @@ textarea::placeholder {
   color: #94a3b8;
   border-color: #475569;
   background-color: #1e293b;
+}
+
+.dark .rbc-month-header .rbc-header:first-child {
+  background-color: rgba(185, 28, 28, 0.25);
+  color: #fecaca;
+  font-weight: 700;
 }
 
 .dark .rbc-month-view,

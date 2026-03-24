@@ -43,9 +43,20 @@ export default function WorkspaceDetailPage() {
     queryKey: ['profile'],
     queryFn: () => authApi.getProfile(),
   });
+  const { data: workspacesData } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => workspaceApi.getWorkspaces(),
+  });
+  const workspacesCount = workspacesData?.results?.length ?? 0;
   const planType = profile?.plan_type ?? 'personal';
   const isPersonalWorkspace = profile?.personal_workspace_id != null && workspaceId === profile.personal_workspace_id;
   const canCreateProject = planType === 'business' || !isPersonalWorkspace;
+  const canDeleteCurrentWorkspace = Boolean(
+    workspace
+    && (profile?.is_superuser === true || workspace.user_role === 'owner')
+    && !isPersonalWorkspace
+    && workspacesCount > 1
+  );
 
   const deleteMutation = useMutation({
     mutationFn: () => workspaceApi.deleteWorkspace(workspaceId),
@@ -116,7 +127,7 @@ export default function WorkspaceDetailPage() {
           )}
           </div>
         </div>
-        {workspace.user_role === 'owner' && (
+        {canDeleteCurrentWorkspace && (
           <button
             onClick={handleDelete}
             disabled={deleteMutation.isPending}

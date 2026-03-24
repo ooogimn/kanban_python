@@ -112,66 +112,66 @@ export default function WorkspaceDirectorPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link
           to={`/workspaces/${workspaceId}`}
-          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-4"
+          className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl hover:border-blue-400/40 transition-all flex items-center gap-4 text-white"
         >
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl">📋</div>
+          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-2xl">📋</div>
           <div>
-            <p className="font-bold text-slate-800">Обзор пространства</p>
-            <p className="text-xs text-slate-500">Участники, настройки</p>
+            <p className="font-bold text-white">Обзор пространства</p>
+            <p className="text-xs text-slate-300">Участники, настройки</p>
           </div>
         </Link>
         <Link
           to="/projects"
-          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-4"
+          className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl hover:border-blue-400/40 transition-all flex items-center gap-4 text-white"
         >
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-2xl">📁</div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/15 border border-blue-300/20 flex items-center justify-center text-2xl">📁</div>
           <div>
-            <p className="font-bold text-slate-800">Все проекты</p>
-            <p className="text-xs text-slate-500">Список проектов</p>
+            <p className="font-bold text-white">Все проекты</p>
+            <p className="text-xs text-slate-300">Список проектов</p>
           </div>
         </Link>
         {firstBoardForWorkspace && (
           <Link
             to={`/kanban/${firstBoardForWorkspace.id}`}
-            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-4"
+            className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl hover:border-blue-400/40 transition-all flex items-center gap-4 text-white"
           >
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-2xl">📋</div>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-300/20 flex items-center justify-center text-2xl">📋</div>
             <div>
-              <p className="font-bold text-slate-800">Этап</p>
-              <p className="text-xs text-slate-500">Доска проекта</p>
+              <p className="font-bold text-white">Этап</p>
+              <p className="text-xs text-slate-300">Доска проекта</p>
             </div>
           </Link>
         )}
         <Link
           to="/tasks"
-          className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all flex items-center gap-4"
+          className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl hover:border-blue-400/40 transition-all flex items-center gap-4 text-white"
         >
-          <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-2xl">✓</div>
+          <div className="w-12 h-12 rounded-2xl bg-orange-500/15 border border-orange-300/20 flex items-center justify-center text-2xl">✓</div>
           <div>
-            <p className="font-bold text-slate-800">Задачи</p>
-            <p className="text-xs text-slate-500">Все задачи</p>
+            <p className="font-bold text-white">Задачи</p>
+            <p className="text-xs text-slate-300">Все задачи</p>
           </div>
         </Link>
       </div>
 
       {/* Проекты пространства с переходами */}
-      <div className="bg-white rounded-[1.5rem] lg:rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 lg:p-8 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
-          <h2 className="text-lg lg:text-xl font-bold text-slate-800">Проекты пространства</h2>
+      <div className="bg-slate-900/80 backdrop-blur-md rounded-[1.5rem] lg:rounded-[2rem] border border-white/10 shadow-2xl overflow-hidden">
+        <div className="p-6 lg:p-8 border-b border-white/10 flex justify-between items-center flex-wrap gap-4">
+          <h2 className="text-lg lg:text-xl font-bold text-white">Проекты пространства</h2>
           {canCreateProject && (
-            <Link to={`/workspaces/${workspaceId}`} className="text-blue-600 font-bold text-sm hover:underline">
+            <Link to={`/workspaces/${workspaceId}`} className="text-imperial-gold font-bold text-sm hover:underline">
               + Создать проект (в обзоре)
             </Link>
           )}
         </div>
         <div className="p-4 lg:p-6">
           {projects.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-slate-300">
               <p className="mb-4">В этом пространстве пока нет проектов</p>
               {canCreateProject && (
                 <Link
                   to={`/workspaces/${workspaceId}`}
-                  className="inline-flex px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700"
+                  className="inline-flex px-6 py-3 bg-imperial-gold text-imperial-bg rounded-xl font-medium hover:opacity-90"
                 >
                   Создать проект
                 </Link>
@@ -184,10 +184,10 @@ export default function WorkspaceDirectorPage() {
                 return (
                   <div
                     key={project.id}
-                    className="flex flex-wrap items-center justify-between gap-4 p-4 lg:p-5 hover:bg-slate-50 rounded-2xl transition-colors"
+                    className="flex flex-wrap items-center justify-between gap-4 p-4 lg:p-5 rounded-2xl transition-colors bg-white/5 border border-white/10 hover:bg-white/10"
                   >
                     <div className="flex items-center gap-4 min-w-0">
-                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-600 rounded-xl flex items-center justify-center font-bold text-slate-500 shrink-0 overflow-hidden">
+                      <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center font-bold text-slate-200 shrink-0 overflow-hidden border border-white/10">
                         {project.logo_url ? (
                           <img src={project.logo_url} alt="" className="w-full h-full object-cover" />
                         ) : (
@@ -195,40 +195,40 @@ export default function WorkspaceDirectorPage() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{project.name}</p>
-                        <p className="text-xs text-slate-500">{project.status}</p>
+                        <p className="font-bold text-white truncate">{project.name}</p>
+                        <p className="text-xs text-slate-300">{project.status}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         to={`/projects/${project.id}`}
-                        className="px-4 py-2 rounded-xl text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        className="px-4 py-2 rounded-xl text-sm font-medium bg-white/10 text-slate-100 border border-white/10 hover:bg-white/20"
                       >
                         Проект
                       </Link>
                       {board && (
                         <Link
 to={`/kanban/${board.id}`}
-                        className="px-4 py-2 rounded-xl text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200"
+                        className="px-4 py-2 rounded-xl text-sm font-medium bg-blue-500/20 text-blue-200 border border-blue-300/30 hover:bg-blue-500/30"
                       >
                         Этап
                         </Link>
                       )}
                       <Link
                         to={`/projects/${project.id}?tab=wiki`}
-                        className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                        className="px-4 py-2 rounded-xl text-sm font-medium bg-emerald-500/20 text-emerald-200 border border-emerald-300/30 hover:bg-emerald-500/30"
                       >
                         Записки
                       </Link>
                       <Link
                         to={`/projects/${project.id}?tab=list`}
-                        className="px-4 py-2 rounded-xl text-sm font-medium bg-orange-100 text-orange-700 hover:bg-orange-200"
+                        className="px-4 py-2 rounded-xl text-sm font-medium bg-orange-500/20 text-orange-200 border border-orange-300/30 hover:bg-orange-500/30"
                       >
                         Задачи
                       </Link>
                       <Link
                         to={`/gantt/${project.id}`}
-                        className="px-4 py-2 rounded-xl text-sm font-medium bg-violet-100 text-violet-700 hover:bg-violet-200"
+                        className="px-4 py-2 rounded-xl text-sm font-medium bg-violet-500/20 text-violet-200 border border-violet-300/30 hover:bg-violet-500/30"
                       >
                         Гант
                       </Link>

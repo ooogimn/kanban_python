@@ -12,6 +12,7 @@ import { todoApi } from '../api/todo';
 import { workspaceApi } from '../api/workspace';
 import { CalendarEvent } from '../types';
 import type { KanbanItem } from '../types';
+import TaskModal from '../components/TaskModal';
 import CalendarEventModal from '../components/CalendarEventModal';
 import { TaskDetailModal } from './KanbanPage';
 import toast from 'react-hot-toast';
@@ -21,7 +22,7 @@ import { downloadCsv } from '../utils/exportCsv';
 moment.locale('ru');
 const localizer = momentLocalizer(moment);
 
-type CalendarView = 'month' | 'week' | 'day' | 'agenda';
+type CalendarView = 'month' | 'week' | 'day' | 'agenda' | 'year';
 
 interface BigCalendarEvent {
   id: string | number;
@@ -32,12 +33,59 @@ interface BigCalendarEvent {
   resource: CalendarFeedItem | CalendarEvent;
 }
 
+function CalendarToolbar(props: {
+  label: string;
+  view: CalendarView;
+  onNavigate: (action: 'PREV' | 'TODAY' | 'NEXT') => void;
+  onView: (view: CalendarView) => void;
+}) {
+  const { label, view, onNavigate, onView } = props;
+  return (
+    <div className="rbc-toolbar">
+      <span className="rbc-btn-group">
+        <button type="button" onClick={() => onNavigate('TODAY')}>Сегодня</button>
+        <button type="button" onClick={() => onNavigate('PREV')}>Назад</button>
+        <button type="button" onClick={() => onNavigate('NEXT')}>Вперёд</button>
+      </span>
+      <span className="rbc-toolbar-label">{label}</span>
+      <span className="rbc-btn-group">
+        <button type="button" className={view === 'year' ? 'rbc-active' : ''} onClick={() => onView('year')}>Год</button>
+        <button type="button" className={view === 'month' ? 'rbc-active' : ''} onClick={() => onView('month')}>Месяц</button>
+        <button type="button" className={view === 'week' ? 'rbc-active' : ''} onClick={() => onView('week')}>Неделя</button>
+        <button type="button" className={view === 'day' ? 'rbc-active' : ''} onClick={() => onView('day')}>День</button>
+      </span>
+    </div>
+  );
+}
+
+function capitalizeFirst(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const WEEKDAYS_RU_SHORT = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+function formatMonthYearRu(date: Date): string {
+  return capitalizeFirst(
+    new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(date),
+  );
+}
+
+const calendarFormats: any = {
+  weekdayFormat: (date: Date) => WEEKDAYS_RU_SHORT[date.getDay()],
+  dayHeaderFormat: (date: Date) => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(date),
+  dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(start)} - ${new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' }).format(end)}`,
+  monthHeaderFormat: (date: Date) => formatMonthYearRu(date),
+};
+
 export default function CalendarPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>('month');
-  const [modalOpen, setModalOpen] = useState(false);
+  const [taskCreateOpen, setTaskCreateOpen] = useState(false);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [slotStart, setSlotStart] = useState<Date | undefined>();
   const [slotEnd, setSlotEnd] = useState<Date | undefined>();
@@ -75,8 +123,10 @@ export default function CalendarPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const startStr = moment(currentDate).startOf('month').format('YYYY-MM-DD');
-  const endStr = moment(currentDate).endOf('month').format('YYYY-MM-DD');
+  const rangeStart = view === 'year' ? moment(currentDate).startOf('year') : moment(currentDate).startOf('month');
+  const rangeEnd = view === 'year' ? moment(currentDate).endOf('year') : moment(currentDate).endOf('month');
+  const startStr = rangeStart.format('YYYY-MM-DD');
+  const endStr = rangeEnd.format('YYYY-MM-DD');
 
   const { data: currentWorkspace } = useQuery({
     queryKey: ['workspace-current'],
@@ -88,19 +138,8 @@ export default function CalendarPage() {
   });
 
   const { data: feedItems, isLoading } = useQuery({
-    queryKey: ['calendar-feed', startStr, endStr, projectFilter],
+    queryKey: ['calendar-feed', startStr, endStr, projectFilter, view],
     queryFn: () => calendarApi.getFeed(startStr, endStr, { projectId: projectFilter || undefined }),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: Partial<CalendarEvent> & { title: string; start_date: string; end_date: string }) =>
-      calendarApi.createEvent(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar-feed'] });
-      toast.success('Событие создано');
-      setModalOpen(false);
-    },
-    onError: () => toast.error('Ошибка при создании события'),
   });
 
   const updateMutation = useMutation({
@@ -114,7 +153,7 @@ export default function CalendarPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-feed'] });
       toast.success('Событие обновлено');
-      setModalOpen(false);
+      setEventModalOpen(false);
     },
     onError: () => toast.error('Ошибка при обновлении события'),
   });
@@ -124,7 +163,7 @@ export default function CalendarPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-feed'] });
       toast.success('Событие удалено');
-      setModalOpen(false);
+      setEventModalOpen(false);
     },
     onError: () => toast.error('Ошибка при удалении события'),
   });
@@ -159,11 +198,13 @@ export default function CalendarPage() {
     resource: item,
   }));
 
+  const yearMonths = Array.from({ length: 12 }, (_, monthIndex) => new Date(currentDate.getFullYear(), monthIndex, 1));
+
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
     setSelectedEvent(null);
     setSlotStart(start);
     setSlotEnd(end);
-    setModalOpen(true);
+    setTaskCreateOpen(true);
   };
 
   const handleSelectEvent = (ev: BigCalendarEvent) => {
@@ -183,14 +224,14 @@ export default function CalendarPage() {
         setSelectedEvent(event);
         setSlotStart(undefined);
         setSlotEnd(undefined);
-        setModalOpen(true);
+        setEventModalOpen(true);
       }).catch(() => toast.error('Не удалось загрузить событие'));
       return;
     }
     setSelectedEvent(ev.resource as CalendarEvent);
     setSlotStart(undefined);
     setSlotEnd(undefined);
-    setModalOpen(true);
+    setEventModalOpen(true);
   };
 
   const handleEventDrop = ({ event, start }: { event: BigCalendarEvent; start: Date }) => {
@@ -224,11 +265,8 @@ export default function CalendarPage() {
   };
 
   const handleSave = (data: Partial<CalendarEvent> & { title: string; start_date: string; end_date: string }) => {
-    if (selectedEvent?.id) {
-      updateMutation.mutate({ id: selectedEvent.id, data });
-    } else {
-      createMutation.mutate(data);
-    }
+    if (!selectedEvent?.id) return;
+    updateMutation.mutate({ id: selectedEvent.id, data });
   };
 
   const handleDelete = (id: number) => {
@@ -308,7 +346,7 @@ export default function CalendarPage() {
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
   }, []);
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting = updateMutation.isPending;
 
   if (isLoading) {
     return (
@@ -323,14 +361,14 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Календарь</h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">События и расписание. Клик по ячейке — создать, по событию — редактировать.</p>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Календарь задач. Режим Год показывает 12 месяцев с днями и задачами.</p>
         </div>
         <div className="flex flex-nowrap items-center gap-1.5">
           <button
             type="button"
-            onClick={() => { setSelectedEvent(null); setSlotStart(undefined); setSlotEnd(undefined); setModalOpen(true); }}
+            onClick={() => { setSelectedEvent(null); setSlotStart(undefined); setSlotEnd(undefined); setTaskCreateOpen(true); }}
             className="px-2 py-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 font-medium text-xs"
-            title="Новое событие"
+            title="Новая задача"
           >
             +
           </button>
@@ -394,42 +432,121 @@ export default function CalendarPage() {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 min-h-[640px]">
-        <Calendar
-          localizer={localizer}
-          events={calendarEvents}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height: 600 }}
-          view={view}
-          onView={setView}
-          date={currentDate}
-          onNavigate={setCurrentDate}
-          onSelectSlot={handleSelectSlot}
-          onSelectEvent={handleSelectEvent}
-          onEventDrop={handleEventDrop}
-          eventPropGetter={eventStyleGetter}
-          selectable
-          resizable={false}
-          draggableAccessor={() => true}
-          messages={{
-            next: 'Следующий',
-            previous: 'Предыдущий',
-            today: 'Сегодня',
-            month: 'Месяц',
-            week: 'Неделя',
-            day: 'День',
-            agenda: 'Повестка',
-            date: 'Дата',
-            time: 'Время',
-            event: 'Событие',
-            noEventsInRange: 'Нет событий в этом диапазоне',
-          }}
-        />
+        {view === 'year' ? (
+          <div className="rbc-calendar">
+            <CalendarToolbar
+              label={String(currentDate.getFullYear())}
+              view={view}
+              onNavigate={(action) => {
+                if (action === 'TODAY') {
+                  setCurrentDate(new Date());
+                  return;
+                }
+                const delta = action === 'PREV' ? -1 : 1;
+                setCurrentDate(new Date(currentDate.getFullYear() + delta, 0, 1));
+              }}
+              onView={setView}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mt-4">
+              {yearMonths.map((monthDate) => (
+                <div key={monthDate.toISOString()} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2 px-1">
+                    {formatMonthYearRu(monthDate)}
+                  </p>
+                  <Calendar
+                    localizer={localizer}
+                    culture="ru"
+                    formats={calendarFormats}
+                    events={calendarEvents}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: 300 }}
+                    view="month"
+                    toolbar={false}
+                    date={monthDate}
+                    onSelectSlot={handleSelectSlot}
+                    onSelectEvent={handleSelectEvent}
+                    eventPropGetter={eventStyleGetter}
+                    selectable
+                    popup
+                    messages={{
+                      next: 'Следующий',
+                      previous: 'Предыдущий',
+                      today: 'Сегодня',
+                      month: 'Месяц',
+                      week: 'Неделя',
+                      day: 'День',
+                      agenda: 'Повестка',
+                      date: 'Дата',
+                      time: 'Время',
+                      event: 'Событие',
+                      noEventsInRange: 'Нет событий в этом диапазоне',
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <Calendar
+            localizer={localizer}
+            culture="ru"
+            formats={calendarFormats}
+            events={calendarEvents}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height: 600 }}
+            view={view}
+            onView={(nextView) => setView(nextView as CalendarView)}
+            date={currentDate}
+            onNavigate={setCurrentDate}
+            onSelectSlot={handleSelectSlot}
+            onSelectEvent={handleSelectEvent}
+            onEventDrop={handleEventDrop}
+            eventPropGetter={eventStyleGetter}
+            selectable
+            resizable={false}
+            draggableAccessor={() => true}
+            components={{
+              toolbar: (props) => (
+                <CalendarToolbar
+                  label={props.label}
+                  view={view}
+                  onNavigate={(action) => props.onNavigate(action)}
+                  onView={setView}
+                />
+              ),
+            }}
+            messages={{
+              next: 'Следующий',
+              previous: 'Предыдущий',
+              today: 'Сегодня',
+              month: 'Месяц',
+              week: 'Неделя',
+              day: 'День',
+              agenda: 'Повестка',
+              date: 'Дата',
+              time: 'Время',
+              event: 'Событие',
+              noEventsInRange: 'Нет событий в этом диапазоне',
+            }}
+          />
+        )}
       </div>
 
+      <TaskModal
+        isOpen={taskCreateOpen}
+        onClose={() => setTaskCreateOpen(false)}
+        projects={projects?.results ?? []}
+        defaultProjectId={projectFilter || undefined}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['calendar-feed'] });
+        }}
+      />
+
       <CalendarEventModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        isOpen={eventModalOpen}
+        onClose={() => setEventModalOpen(false)}
         event={selectedEvent}
         defaultStart={slotStart}
         defaultEnd={slotEnd}

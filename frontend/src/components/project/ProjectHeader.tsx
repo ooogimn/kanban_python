@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Project } from '../../types';
-import { aiApi } from '../../api/ai';
 
 interface ProjectHeaderProps {
   project: Project;
@@ -21,29 +19,9 @@ export default function ProjectHeader({
   onDelete,
   isDeleting = false,
 }: ProjectHeaderProps) {
-  const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<{ summary: string; context: unknown } | null>(null);
-  const [aiShowContext, setAiShowContext] = useState(false);
-
   const progress = project.progress ?? 0;
   const healthStatus = project.health_status ?? 'on_track';
   const isBehind = healthStatus === 'behind';
-
-  const handleAiSummary = async () => {
-    setAiModalOpen(true);
-    setAiResult(null);
-    setAiShowContext(false);
-    setAiLoading(true);
-    try {
-      const data = await aiApi.analyzeProject(project.id);
-      setAiResult({ summary: data.summary, context: data.context });
-    } catch {
-      setAiResult({ summary: 'Не удалось загрузить сводку.', context: null });
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -96,15 +74,6 @@ export default function ProjectHeader({
           )}
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleAiSummary}
-            disabled={aiLoading}
-            className="px-4 py-2 rounded-lg bg-imperial-gold/20 text-imperial-gold border border-imperial-gold/40 hover:bg-imperial-gold/30 transition-colors disabled:opacity-50 flex items-center gap-2"
-            title="AI сводка по проекту"
-          >
-            ✨ AI Summary
-          </button>
           {onEdit && (
             <button
               onClick={onEdit}
@@ -137,52 +106,6 @@ export default function ProjectHeader({
           />
         </div>
       </div>
-
-      {aiModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setAiModalOpen(false)}
-        >
-          <div
-            className="rounded-xl border border-white/10 bg-imperial-surface dark:bg-imperial-surface w-full max-w-lg shadow-xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">✨ AI Summary</h3>
-              <button
-                type="button"
-                onClick={() => setAiModalOpen(false)}
-                className="p-2 rounded-lg text-imperial-muted hover:text-white hover:bg-white/10"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4 max-h-[70vh] overflow-y-auto">
-              {aiLoading ? (
-                <p className="text-imperial-muted">Загрузка…</p>
-              ) : aiResult ? (
-                <div className="space-y-4">
-                  <p className="text-slate-200 leading-relaxed">{aiResult.summary}</p>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setAiShowContext((v) => !v)}
-                      className="text-sm text-imperial-gold hover:underline"
-                    >
-                      {aiShowContext ? 'Скрыть контекст' : 'Показать контекст'}
-                    </button>
-                    {aiShowContext && aiResult.context != null && (
-                      <pre className="mt-2 p-3 rounded-lg bg-white/5 text-xs text-imperial-muted overflow-x-auto max-h-64 overflow-y-auto">
-                        {JSON.stringify(aiResult.context, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

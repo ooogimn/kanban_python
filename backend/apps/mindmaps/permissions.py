@@ -23,26 +23,32 @@ class CanAccessMindMap(permissions.BasePermission):
             return False
         if obj.workspace_id:
             try:
-                WorkspaceMember.objects.get(workspace_id=obj.workspace_id, user=request.user)
-                return True
+                membership = WorkspaceMember.objects.get(workspace_id=obj.workspace_id, user=request.user)
+                if request.method in permissions.SAFE_METHODS:
+                    return True
+                return membership.role != WorkspaceMember.ROLE_VIEWER
             except WorkspaceMember.DoesNotExist:
                 pass
         if obj.project_id:
             try:
-                WorkspaceMember.objects.get(
+                membership = WorkspaceMember.objects.get(
                     workspace_id=obj.project.workspace_id,
                     user=request.user,
                 )
-                return True
+                if request.method in permissions.SAFE_METHODS:
+                    return True
+                return membership.role != WorkspaceMember.ROLE_VIEWER
             except (WorkspaceMember.DoesNotExist, AttributeError):
                 pass
         if obj.related_workitem_id:
             try:
-                WorkspaceMember.objects.get(
+                membership = WorkspaceMember.objects.get(
                     workspace_id=obj.related_workitem.project.workspace_id,
                     user=request.user,
                 )
-                return True
+                if request.method in permissions.SAFE_METHODS:
+                    return True
+                return membership.role != WorkspaceMember.ROLE_VIEWER
             except (WorkspaceMember.DoesNotExist, AttributeError):
                 pass
         return False

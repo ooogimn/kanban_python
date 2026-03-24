@@ -172,6 +172,13 @@ export default function DashboardPage() {
   const recentProjects = projects.slice(0, 5);
   const activeTasks = stats?.in_progress_tasks ?? stats?.active_tasks ?? 0;
   const completionRate = stats?.completion_rate ?? 0;
+  const hasChartsData = Boolean(
+    chartsData && (
+      (chartsData.finance_flow?.length ?? 0) > 0
+      || (chartsData.team_load?.length ?? 0) > 0
+      || (chartsData.project_hours?.length ?? 0) > 0
+    )
+  );
 
   const displayName = user?.first_name || user?.username || 'Пользователь';
   const tasksToday = overview?.tasks_today ?? 0;
@@ -286,54 +293,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 lg:space-y-10">
-      {/* Приветствие и сводка дня */}
-      {overview && (
-        <section className="rounded-2xl bg-imperial-surface border border-white/5 text-imperial-text p-6 lg:p-8">
-          <h1 className="text-2xl lg:text-3xl font-bold mb-1">
-            {getGreeting()}, {displayName}!
-          </h1>
-          <p className="text-slate-300 mb-4">
-            На сегодня у вас {tasksToday} задач{todayEvents ? ` и ${todayEvents} встреч` : ''}.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white/10 rounded-xl p-3">
-              <p className="text-xs text-slate-400 uppercase">Мои задачи</p>
-              <p className="text-xl font-bold">{overview.tasks_count}</p>
-            </div>
-            <div className="bg-white/10 rounded-xl p-3">
-              <p className="text-xs text-slate-400 uppercase">Активные проекты</p>
-              <p className="text-xl font-bold">{overview.active_projects_count}</p>
-            </div>
-            <div className="bg-white/10 rounded-xl p-3">
-              <p className="text-xs text-slate-400 uppercase">Потрачено бюджета</p>
-              <p className="text-xl font-bold">{Number(overview.total_budget_spent).toLocaleString('ru-RU')} ₽</p>
-            </div>
-            <div className="bg-white/10 rounded-xl p-3">
-              <p className="text-xs text-slate-400 uppercase">Часов сегодня</p>
-              <p className="text-xl font-bold">{overview.hours_today}</p>
-            </div>
-          </div>
-          {overview.active_timer && (
-            <div className="mt-4 pt-4 border-t border-white/20">
-              <DashboardActiveTimerCard
-                workitemId={overview.active_timer.workitem_id}
-                workitemTitle={overview.active_timer.workitem_title}
-                elapsedSeconds={elapsed}
-              />
-            </div>
-          )}
-          <div className="mt-4 pt-4 border-t border-white/20">
-            <Link
-              to="/ai/marketplace"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-imperial-gold/20 text-imperial-gold hover:bg-imperial-gold/30 font-medium transition-colors"
-            >
-              <span aria-hidden>✨</span>
-              Маркетплейс ИИ-агентов
-            </Link>
-          </div>
-        </section>
-      )}
-
       {/* Текущее пространство и виджет «Здоровье компании» (SPRINT 1) */}
       {effectiveWorkspace && (
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -364,7 +323,7 @@ export default function DashboardPage() {
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 w-full items-center gap-6">
           <div className="space-y-2 lg:space-y-4">
             <h2 className="text-xl lg:text-2xl font-bold text-imperial-text tracking-tight font-mono">
-              Общий монитор <span className="text-imperial-gold">директора</span>
+              Общий монитор <span className="text-imperial-gold">пользователя</span>
             </h2>
             <p className="text-slate-300 text-sm lg:text-base max-w-lg leading-relaxed">
               Пространства, проекты и задачи в одном экране.
@@ -446,7 +405,7 @@ export default function DashboardPage() {
               <ChartsSkeleton className="w-full h-[260px]" />
             </div>
           </>
-        ) : chartsData ? (
+        ) : hasChartsData ? (
           <>
             <div className="lg:col-span-2 rounded-2xl bg-imperial-surface border border-white/5 p-6 shadow-lg">
               <h3 className="text-lg font-bold text-imperial-gold font-mono mb-4">Финансовый поток</h3>
@@ -461,7 +420,11 @@ export default function DashboardPage() {
               <BurnRateChart data={chartsData.finance_flow} height={260} />
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="lg:col-span-3 rounded-2xl bg-imperial-surface border border-white/5 p-6 shadow-lg text-slate-300">
+            Пока нет данных для графиков в вашем пространстве.
+          </div>
+        )}
       </section>
 
       {/* Прогресс выполнения (по workspace) */}

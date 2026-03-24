@@ -172,7 +172,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => startSocialRegister('google')}
-                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 text-sm"
                 >
                   Google
                 </button>
@@ -181,7 +181,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => startSocialRegister('yandex')}
-                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 text-sm"
                 >
                   Яндекс
                 </button>
@@ -190,7 +190,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => startSocialRegister('vk')}
-                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 text-sm"
                 >
                   VK
                 </button>
@@ -199,7 +199,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => startSocialRegister('mail')}
-                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 text-sm"
                 >
                   Mail
                 </button>
@@ -208,7 +208,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => navigate('/login')}
-                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm"
+                  className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900 text-sm"
                 >
                   Telegram (через страницу входа)
                 </button>

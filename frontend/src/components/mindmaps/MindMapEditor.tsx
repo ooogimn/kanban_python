@@ -560,6 +560,7 @@ function FlowToolbar({
   onBackgroundSizeChange,
   pendingImageReady,
   onImageFileSelect,
+  onImportFileSelect,
   selectedBgItem,
   onUpdateSelectedBgItem,
   onDeleteSelectedBgItem,
@@ -580,6 +581,7 @@ function FlowToolbar({
   onBackgroundSizeChange: (size: number) => void;
   pendingImageReady: boolean;
   onImageFileSelect: (file: File) => void;
+  onImportFileSelect: (file: File) => void;
   selectedBgItem: BgShapeItem | null;
   onUpdateSelectedBgItem: (patch: Partial<BgShapeItem>) => void;
   onDeleteSelectedBgItem: () => void;
@@ -681,7 +683,12 @@ function FlowToolbar({
     onSuccess: () => {
       toast.success('Карта экспортирована в файлы проекта');
     },
-    onError: () => toast.error('Ошибка экспорта в файл'),
+    onError: (error: unknown) => {
+      const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      // Для paywall-кодов модалка открывается глобально в axios interceptor.
+      if (code === 'LIMIT_REACHED' || code === 'FEATURE_LOCKED') return;
+      toast.error('Ошибка экспорта в файл');
+    },
   });
 
   const handleExportToFile = useCallback(() => {
@@ -712,6 +719,17 @@ function FlowToolbar({
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) onImageFileSelect(file);
+          e.currentTarget.value = '';
+        }}
+      />
+      <input
+        type="file"
+        accept="application/json,.json"
+        id="mindmap-import-json-input"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onImportFileSelect(file);
           e.currentTarget.value = '';
         }}
       />
@@ -807,6 +825,13 @@ function FlowToolbar({
         >
           {exportToFileMutation.isPending ? '…' : 'В файлы проекта'}
         </button>
+        <label
+          htmlFor="mindmap-import-json-input"
+          className={`px-1.5 py-0.5 rounded text-xs font-medium border cursor-pointer ${btnSecondaryClass}`}
+          title="Импортировать карту из JSON"
+        >
+          Импорт JSON
+        </label>
 
         {workitemId && (
           <>
@@ -953,6 +978,36 @@ function EditorInner({
   const [backgroundItems, setBackgroundItems] = useState<BgItem[]>([]);
   const [selectedBgId, setSelectedBgId] = useState<string | null>(null);
   const [pendingImageSrc, setPendingImageSrc] = useState<string | null>(null);
+
+  const importDataMutation = useMutation({
+    mutationFn: ({ mapId, file }: { mapId: number; file: File }) => mindmapsApi.importData(mapId, file),
+    onSuccess: (updated) => {
+      setNodes((updated.nodes as Node[]) || []);
+      setEdges((updated.edges as Edge[]) || []);
+      toast.success('Карта успешно импортирована');
+    },
+    onError: (error: unknown) => {
+      const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      if (code === 'LIMIT_REACHED' || code === 'FEATURE_LOCKED') return;
+      toast.error('Ошибка импорта карты');
+    },
+  });
+
+  const uploadMapImageMutation = useMutation({
+    mutationFn: ({ mapId, file }: { mapId: number; file: File }) => mindmapsApi.uploadMapImage(mapId, file),
+    onSuccess: (result) => {
+      if (result?.image_url) {
+        setPendingImageSrc(result.image_url);
+        setBackgroundTool('image');
+      }
+      toast.success('Изображение загружено');
+    },
+    onError: (error: unknown) => {
+      const code = (error as { response?: { data?: { code?: string } } })?.response?.data?.code;
+      if (code === 'LIMIT_REACHED' || code === 'FEATURE_LOCKED') return;
+      toast.error('Ошибка загрузки изображения');
+    },
+  });
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -1114,6 +1169,10 @@ function EditorInner({
   );
 
   const handleImageFileSelect = useCallback((file: File) => {
+    if (id) {
+      uploadMapImageMutation.mutate({ mapId: id, file });
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = typeof reader.result === 'string' ? reader.result : null;
@@ -1123,7 +1182,15 @@ function EditorInner({
       }
     };
     reader.readAsDataURL(file);
-  }, []);
+  }, [id, uploadMapImageMutation]);
+
+  const handleImportFileSelect = useCallback((file: File) => {
+    if (!id) {
+      toast.error('Сначала сохраните карту');
+      return;
+    }
+    importDataMutation.mutate({ mapId: id, file });
+  }, [id, importDataMutation]);
 
   const handleUpdateSelectedBgItem = useCallback((patch: Partial<BgShapeItem>) => {
     if (!selectedBgId) return;
@@ -1219,6 +1286,7 @@ function EditorInner({
           onBackgroundSizeChange={setDrawingSize}
           pendingImageReady={!!pendingImageSrc}
           onImageFileSelect={handleImageFileSelect}
+          onImportFileSelect={handleImportFileSelect}
           selectedBgItem={selectedBgItem}
           onUpdateSelectedBgItem={handleUpdateSelectedBgItem}
           onDeleteSelectedBgItem={handleDeleteSelectedBgItem}

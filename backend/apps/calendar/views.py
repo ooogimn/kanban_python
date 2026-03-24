@@ -5,7 +5,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
@@ -216,24 +216,41 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
         tasks_qs = WorkItem.objects.filter(
             project_id__in=project_ids,
         ).filter(
-            Q(due_date__gte=start_date_only, due_date__lte=end_date_only)
-            | Q(start_date__gte=start_date_only, start_date__lte=end_date_only)
+            # Полный диапазон задачи пересекается с окном календаря.
+            Q(
+                start_date__isnull=False,
+                due_date__isnull=False,
+                start_date__lte=end_date_only,
+                due_date__gte=start_date_only,
+            )
+            # Фолбэки, когда одна из дат не заполнена.
+            | Q(start_date__isnull=True, due_date__gte=start_date_only, due_date__lte=end_date_only)
+            | Q(due_date__isnull=True, start_date__gte=start_date_only, start_date__lte=end_date_only)
         ).select_related('project')
         for t in tasks_qs:
-            date_use = t.due_date or t.start_date
-            if not date_use:
+            task_start_date = t.start_date or t.due_date
+            task_end_date = t.due_date or t.start_date
+            if not task_start_date or not task_end_date:
                 continue
-            day_start = datetime.combine(date_use, time.min)
-            day_end = datetime.combine(date_use, time.max)
-            priority = t.priority or WorkItem.PRIORITY_MEDIUM
-            if priority in (WorkItem.PRIORITY_HIGH, WorkItem.PRIORITY_URGENT):
-                color = '#E53935'
-            elif priority == WorkItem.PRIORITY_LOW:
-                color = '#9E9E9E'
-            elif t.status == WorkItem.STATUS_COMPLETED:
-                color = '#43A047'
+            if task_end_date < task_start_date:
+                task_start_date, task_end_date = task_end_date, task_start_date
+
+            day_start = datetime.combine(task_start_date, time.min)
+            # Для allDay в react-big-calendar конец должен быть exclusive (следующий день 00:00).
+            day_end = datetime.combine(task_end_date + timedelta(days=1), time.min)
+            # Приоритет: явный цвет задачи > расчетный цвет по приоритету/статусу.
+            if t.color:
+                color = t.color
             else:
-                color = '#1E88E5'
+                priority = t.priority or WorkItem.PRIORITY_MEDIUM
+                if priority in (WorkItem.PRIORITY_HIGH, WorkItem.PRIORITY_URGENT):
+                    color = '#E53935'
+                elif priority == WorkItem.PRIORITY_LOW:
+                    color = '#9E9E9E'
+                elif t.status == WorkItem.STATUS_COMPLETED:
+                    color = '#43A047'
+                else:
+                    color = '#1E88E5'
             out.append({
                 'id': f'task_{t.id}',
                 'title': t.title,

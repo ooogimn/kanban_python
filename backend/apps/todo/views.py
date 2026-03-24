@@ -5,6 +5,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
@@ -18,6 +19,7 @@ from .serializers import (
 )
 from apps.auth.permissions import IsWorkspaceMember
 from apps.core.models import Workspace, WorkspaceMember
+from apps.billing.services import QuotaService
 from apps.notifications.mixins import AuditUserMixin
 from apps.notifications.audit import log_audit
 from apps.notifications.models import AuditLog
@@ -159,6 +161,23 @@ class ProjectViewSet(AuditUserMixin, viewsets.ModelViewSet):
         
         return Response(serializer.data)
 
+    def destroy(self, request, *args, **kwargs):
+        """Защита от удаления личного/последнего доступного проекта."""
+        project = self.get_object()
+        user = request.user
+
+        if project.is_personal:
+            raise PermissionDenied('Личный проект удалить нельзя.')
+
+        if not getattr(user, 'is_superuser', False) and not getattr(user, 'is_staff', False):
+            accessible_project_count = Project.objects.filter(
+                workspace__memberships__user=user,
+            ).distinct().count()
+            if accessible_project_count <= 1:
+                raise PermissionDenied('Нельзя удалить единственный доступный проект.')
+
+        return super().destroy(request, *args, **kwargs)
+
 
 class WorkItemViewSet(AuditUserMixin, viewsets.ModelViewSet):
     """
@@ -228,6 +247,27 @@ class WorkItemViewSet(AuditUserMixin, viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Установка created_by при создании."""
+        project = serializer.validated_data.get('project')
+        workspace_id = getattr(project, 'workspace_id', None)
+        current_tasks = WorkItem.objects.filter(
+            project__workspace_id=workspace_id,
+            deleted_at__isnull=True,
+        ).count() if workspace_id else WorkItem.objects.filter(
+            created_by=self.request.user,
+            deleted_at__isnull=True,
+        ).count()
+        QuotaService.assert_new_resources_allowed(
+            self.request.user,
+            workspace_id=workspace_id,
+            source='todo.workitem.create',
+        )
+        QuotaService.assert_quota(
+            self.request.user,
+            ('max_tasks', 'max_workitems'),
+            current_usage=current_tasks,
+            workspace_id=workspace_id,
+            source='todo.workitem.create',
+        )
         serializer.save(created_by=self.request.user)
     
     def perform_destroy(self, instance):

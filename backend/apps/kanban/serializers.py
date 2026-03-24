@@ -4,6 +4,7 @@ Serializers for kanban app.
 """
 from rest_framework import serializers
 from apps.core.models import User
+from apps.billing.services import QuotaService
 from apps.todo.models import WorkItem
 from .models import Stage, Board, Column
 
@@ -225,6 +226,23 @@ class BoardSerializer(serializers.ModelSerializer):
                 _, default_proj = get_default_workspace_and_project(request.user)
                 if default_proj:
                     validated_data['project'] = default_proj
+        request = self.context.get('request')
+        project = validated_data.get('project')
+        workspace_id = getattr(project, 'workspace_id', None)
+        if request and request.user:
+            current_boards = Stage.objects.filter(project__workspace_id=workspace_id).count() if workspace_id else 0
+            QuotaService.assert_new_resources_allowed(
+                request.user,
+                workspace_id=workspace_id,
+                source='kanban.board.create',
+            )
+            QuotaService.assert_quota(
+                request.user,
+                ('max_kanban_boards', 'max_boards', 'max_stages'),
+                current_usage=current_boards,
+                workspace_id=workspace_id,
+                source='kanban.board.create',
+            )
         return super().create(validated_data)
 
 

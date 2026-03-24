@@ -78,7 +78,7 @@ class DashboardStatsView(APIView):
     """
     GET /api/v1/core/dashboard-stats/
     Агрегация для графиков дашборда: finance_flow, project_hours, team_load.
-    Если данных мало — возвращаются моковые значения для демонстрации.
+    Если данных нет — возвращаются пустые массивы.
     """
     permission_classes = [IsAuthenticated, IsWorkspaceMember]
 
@@ -114,17 +114,6 @@ class DashboardStatsView(APIView):
                     'expense': float(row['expense'] or 0),
                 })
 
-        if not finance_flow:
-            # Мок: последние 6 месяцев
-            now = timezone.now()
-            for i in range(5, -1, -1):
-                d = now - timedelta(days=30 * i)
-                finance_flow.append({
-                    'month': month_abbr[d.month],
-                    'income': 5000 + i * 500,
-                    'expense': 2000 + i * 300,
-                })
-
         # --- project_hours: по проектам (из TimeLog через workitem -> project) ---
         project_hours = []
         if project_ids:
@@ -139,13 +128,6 @@ class DashboardStatsView(APIView):
                 name = row.get('workitem__project__name') or 'Без проекта'
                 mins = row.get('total_minutes') or 0
                 project_hours.append({'name': name, 'hours': round(mins / 60, 1)})
-
-        if not project_hours:
-            project_hours = [
-                {'name': 'Project A', 'hours': 120},
-                {'name': 'Project B', 'hours': 80},
-                {'name': 'Project C', 'hours': 45},
-            ]
 
         # --- team_load: по пользователям (часы как value, можно нормализовать в %) ---
         team_load = []
@@ -164,13 +146,6 @@ class DashboardStatsView(APIView):
             mins = row.get('total_minutes') or 0
             value = round(mins / 60, 1) if total_minutes else 0
             team_load.append({'name': display, 'value': value})
-
-        if not team_load:
-            team_load = [
-                {'name': 'Dev 1', 'value': 40},
-                {'name': 'Dev 2', 'value': 60},
-                {'name': 'PM', 'value': 25},
-            ]
 
         return Response({
             'finance_flow': finance_flow,

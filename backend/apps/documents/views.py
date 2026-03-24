@@ -24,6 +24,8 @@ from .permissions import HasProjectAccess, CanEditComment, CanEditWikiPage
 from .utils import can_preview_in_browser, get_google_viewer_url
 from apps.auth.permissions import IsWorkspaceMember
 from apps.core.models import WorkspaceMember
+from apps.core.services import get_default_workspace_and_project
+from apps.billing.services import QuotaService
 from apps.todo.models import Project, WorkItem
 from apps.todo.serializers import WorkItemSerializer
 from apps.schedule.models import ScheduleEntry
@@ -95,7 +97,30 @@ class AttachmentViewSet(viewsets.ModelViewSet):
         """Создание вложения и возврат полных данных (id, file_url) для вставки в редактор."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
+        project = serializer.validated_data.get('project')
+        workspace_id = getattr(project, 'workspace_id', None)
+        upload_file = serializer.validated_data.get('file')
+        file_size = int(getattr(upload_file, 'size', 0) or 0)
+        QuotaService.assert_new_resources_allowed(
+            request.user,
+            workspace_id=workspace_id,
+            source='documents.attachment.create',
+        )
+        QuotaService.reserve_storage_bytes(
+            request.user,
+            file_size,
+            workspace_id=workspace_id,
+            source='documents.attachment.create',
+        )
+        try:
+            self.perform_create(serializer)
+        except Exception:
+            QuotaService.release_storage_bytes(
+                request.user,
+                file_size,
+                workspace_id=workspace_id,
+            )
+            raise
         instance = serializer.instance
         # Возвращаем полный объект с file_url для отображения изображений
         out_serializer = AttachmentSerializer(instance, context={'request': request})
@@ -166,6 +191,11 @@ class AttachmentViewSet(viewsets.ModelViewSet):
     
     def perform_destroy(self, instance):
         """Удаление файла и физического файла."""
+        QuotaService.release_storage_bytes(
+            self.request.user,
+            int(instance.size or 0),
+            workspace_id=getattr(instance.project, 'workspace_id', None),
+        )
         if instance.file:
             # Удаляем физический файл
             try:
@@ -314,6 +344,22 @@ class CommentViewSet(viewsets.ModelViewSet):
                 {'detail': 'Не удалось определить проект для задачи (комментарий не привязан к проекту).'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        current_tasks = WorkItem.objects.filter(
+            project__workspace_id=project.workspace_id,
+            deleted_at__isnull=True,
+        ).count()
+        QuotaService.assert_new_resources_allowed(
+            request.user,
+            workspace_id=project.workspace_id,
+            source='documents.comment.create_task',
+        )
+        QuotaService.assert_quota(
+            request.user,
+            ('max_tasks', 'max_workitems'),
+            current_usage=current_tasks,
+            workspace_id=project.workspace_id,
+            source='documents.comment.create_task',
+        )
         title = (comment.content[:200].replace('\n', ' ') or 'Задача из комментария').strip()
         task = WorkItem.objects.create(
             title=title,
@@ -432,6 +478,32 @@ class WikiPageViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Создание Wiki страницы."""
+        project = serializer.validated_data.get('project')
+        workspace = serializer.validated_data.get('workspace')
+        workspace_id = None
+        if project is not None:
+            workspace_id = project.workspace_id
+        elif workspace is not None:
+            workspace_id = workspace.id
+        else:
+            default_ws, _ = get_default_workspace_and_project(self.request.user)
+            workspace_id = default_ws.id if default_ws else None
+        current_pages = WikiPage.objects.filter(
+            Q(workspace_id=workspace_id) | Q(project__workspace_id=workspace_id),
+            author=self.request.user,
+        ).count() if workspace_id else WikiPage.objects.filter(author=self.request.user).count()
+        QuotaService.assert_new_resources_allowed(
+            self.request.user,
+            workspace_id=workspace_id,
+            source='documents.wiki.create',
+        )
+        QuotaService.assert_quota(
+            self.request.user,
+            ('max_notebooks', 'max_wiki_pages'),
+            current_usage=current_pages,
+            workspace_id=workspace_id,
+            source='documents.wiki.create',
+        )
         serializer.save()
     
     @action(detail=False, methods=['get'], url_path='projects/(?P<project_id>[^/.]+)/tree')
@@ -472,6 +544,22 @@ class WikiPageViewSet(viewsets.ModelViewSet):
                 {'detail': 'Сначала привяжите записку к проекту (PATCH с полем project).'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        current_tasks = WorkItem.objects.filter(
+            project__workspace_id=page.project.workspace_id,
+            deleted_at__isnull=True,
+        ).count()
+        QuotaService.assert_new_resources_allowed(
+            request.user,
+            workspace_id=page.project.workspace_id,
+            source='documents.wiki.create_task',
+        )
+        QuotaService.assert_quota(
+            request.user,
+            ('max_tasks', 'max_workitems'),
+            current_usage=current_tasks,
+            workspace_id=page.project.workspace_id,
+            source='documents.wiki.create_task',
+        )
         description = (page.content or '')[:10000]
         task = WorkItem.objects.create(
             title=page.title[:500],

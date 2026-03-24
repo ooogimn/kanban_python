@@ -17,6 +17,7 @@ from django.db import IntegrityError
 from django.db import transaction
 import requests
 
+from .exceptions import QuotaExceeded, FeatureLocked
 from .models import (
     Invoice,
     Subscription,
@@ -31,6 +32,8 @@ from .models import (
 from apps.timetracking.models import TimeLog
 from apps.todo.models import Project
 from apps.core.models import UserEvent
+from apps.notifications.audit import log_audit
+from apps.notifications.models import AuditLog
 
 
 # Дефолтные лимиты Free (если у пользователя нет подписки или плана)
@@ -38,7 +41,7 @@ DEFAULT_FREE_LIMITS = {
     'max_system_contacts': 10,
     'max_ai_agents': 1,
     'features': {
-        'hr': True,
+        'hr': False,
         'payroll': False,
         'ai_analyst': False,
         'finance_analytics': False,
@@ -134,6 +137,252 @@ class SubscriptionService:
         if not isinstance(features, dict):
             return False
         return bool(features.get(feature_key))
+
+
+class QuotaService:
+    """Единый сервис quota/feature enforcement для SaaS-ограничений."""
+
+    STORAGE_META_KEY = 'used_storage_bytes'
+    BYPASS_ITEM_META_KEY = 'bypass_quotas'
+
+    @staticmethod
+    def _as_list(value):
+        if isinstance(value, (list, tuple)):
+            return [v for v in value if v]
+        if value:
+            return [value]
+        return []
+
+    @staticmethod
+    def _safe_float(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _workspace_name(account, workspace_id=None):
+        if account and account.workspace_id:
+            return account.workspace.name
+        if workspace_id:
+            try:
+                from apps.core.models import Workspace
+                return Workspace.objects.filter(pk=workspace_id).values_list('name', flat=True).first() or 'Ваше пространство'
+            except Exception:
+                return 'Ваше пространство'
+        return 'Ваше пространство'
+
+    @classmethod
+    def _resolve_context(cls, user, workspace_id=None):
+        account = BillingAccountService.get_user_account(user)
+        subscription = BillingAccountService.get_current_subscription(account) if account else None
+        entitlements = EntitlementService.calculate(user=user, account=account, subscription=subscription)
+        return account, subscription, entitlements
+
+    @classmethod
+    def _has_quota_bypass(cls, user, subscription=None):
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return True
+        if not subscription:
+            return False
+        for item in subscription.items.filter(is_active=True):
+            meta = item.meta if isinstance(item.meta, dict) else {}
+            if bool(meta.get(cls.BYPASS_ITEM_META_KEY)):
+                return True
+        return False
+
+    @staticmethod
+    def _get_limit(entitlements, keys):
+        limits = entitlements.get('limits', {}) if isinstance(entitlements, dict) else {}
+        if not isinstance(limits, dict):
+            return None, None
+        for key in keys:
+            if key in limits:
+                return key, limits.get(key)
+        return None, None
+
+    @staticmethod
+    def _get_feature(entitlements, keys):
+        features = entitlements.get('features', {}) if isinstance(entitlements, dict) else {}
+        if not isinstance(features, dict):
+            return None, None
+        for key in keys:
+            if key in features:
+                return key, bool(features.get(key))
+        return None, None
+
+    @classmethod
+    def _audit_block(cls, *, user, account, kind, key, limit=None, usage=None, source=''):
+        object_id = account.id if account else 0
+        log_audit(
+            AuditLog.ACTION_UPDATE,
+            'quota_enforcement',
+            object_id,
+            user=user,
+            changes={
+                'kind': kind,
+                'key': key,
+                'limit': limit,
+                'usage': usage,
+                'source': source,
+            },
+        )
+
+    @classmethod
+    def assert_new_resources_allowed(cls, user, *, workspace_id=None, source=''):
+        account, subscription, entitlements = cls._resolve_context(user, workspace_id=workspace_id)
+        if cls._has_quota_bypass(user, subscription=subscription):
+            return
+        restrictions = entitlements.get('restrictions', {}) if isinstance(entitlements, dict) else {}
+        allow_new = bool(restrictions.get('allow_new_resources', True))
+        if allow_new:
+            return
+        cls._audit_block(
+            user=user,
+            account=account,
+            kind='restriction',
+            key='allow_new_resources',
+            source=source,
+        )
+        raise FeatureLocked('Создание новых ресурсов временно недоступно: проверьте статус подписки.')
+
+    @classmethod
+    def assert_feature(cls, user, feature_keys, *, detail=None, workspace_id=None, source=''):
+        keys = cls._as_list(feature_keys)
+        if not keys:
+            return
+        account, subscription, entitlements = cls._resolve_context(user, workspace_id=workspace_id)
+        if cls._has_quota_bypass(user, subscription=subscription):
+            return
+        feature_key, enabled = cls._get_feature(entitlements, keys)
+        # Если фича не описана в тарифе, не блокируем.
+        if feature_key is None or enabled:
+            return
+        cls._audit_block(
+            user=user,
+            account=account,
+            kind='feature',
+            key=feature_key,
+            source=source,
+        )
+        raise FeatureLocked(detail or 'Эта функция — достояние Империи. Доступно в тарифе БАЗА.', feature=feature_key)
+
+    @classmethod
+    def assert_quota(
+        cls,
+        user,
+        metric_keys,
+        *,
+        current_usage,
+        increment=1,
+        workspace_id=None,
+        source='',
+        detail=None,
+    ):
+        keys = cls._as_list(metric_keys)
+        if not keys:
+            return
+        account, subscription, entitlements = cls._resolve_context(user, workspace_id=workspace_id)
+        if cls._has_quota_bypass(user, subscription=subscription):
+            return
+        metric_key, raw_limit = cls._get_limit(entitlements, keys)
+        if metric_key is None:
+            return
+        limit_value = cls._safe_float(raw_limit, default=-1)
+        if limit_value < 0:
+            return
+        projected = cls._safe_float(current_usage, default=0) + cls._safe_float(increment, default=0)
+        if projected <= limit_value:
+            return
+        cls._audit_block(
+            user=user,
+            account=account,
+            kind='limit',
+            key=metric_key,
+            limit=limit_value,
+            usage=projected,
+            source=source,
+        )
+        raise QuotaExceeded(
+            detail or 'Лимит тарифа исчерпан. Перейдите на более высокий план.',
+            limit=limit_value,
+            usage=projected,
+            metric=metric_key,
+        )
+
+    @classmethod
+    def _count_workspace_attachments_size(cls, workspace_id):
+        from apps.documents.models import Attachment
+        agg = Attachment.objects.filter(project__workspace_id=workspace_id).aggregate(total=Sum('size'))
+        return int(agg.get('total') or 0)
+
+    @classmethod
+    def reserve_storage_bytes(
+        cls,
+        user,
+        size_bytes,
+        *,
+        workspace_id=None,
+        source='',
+    ):
+        size_bytes = int(size_bytes or 0)
+        if size_bytes <= 0:
+            return
+        account, subscription, entitlements = cls._resolve_context(user, workspace_id=workspace_id)
+        if cls._has_quota_bypass(user, subscription=subscription):
+            return
+        metric_key, raw_limit = cls._get_limit(entitlements, ('storage_gb', 'max_storage_gb'))
+        if metric_key is None:
+            return
+        limit_gb = cls._safe_float(raw_limit, default=-1)
+        limit_bytes = None if limit_gb < 0 else int(limit_gb * 1024 * 1024 * 1024)
+        if not account:
+            return
+
+        with transaction.atomic():
+            locked_account = BillingAccount.objects.select_for_update().select_related('workspace').get(pk=account.pk)
+            meta = dict(locked_account.meta or {})
+            used_bytes = int(meta.get(cls.STORAGE_META_KEY) or 0)
+            # Инициализация счетчика из фактического объема (один раз или при рассинхроне вниз).
+            if used_bytes <= 0 and (workspace_id or locked_account.workspace_id):
+                ws_id = workspace_id or locked_account.workspace_id
+                used_bytes = cls._count_workspace_attachments_size(ws_id)
+            projected = used_bytes + size_bytes
+            if limit_bytes is not None and projected > limit_bytes:
+                workspace_name = cls._workspace_name(locked_account, workspace_id=workspace_id)
+                detail = (
+                    f"Ваше пространство '{workspace_name}' заполнено. "
+                    "Чтобы расширить границы до тарифа БАЗА, нажмите здесь."
+                )
+                cls._audit_block(
+                    user=user,
+                    account=locked_account,
+                    kind='limit',
+                    key=metric_key,
+                    limit=limit_bytes,
+                    usage=projected,
+                    source=source or 'storage',
+                )
+                raise QuotaExceeded(detail, limit=limit_bytes, usage=projected, metric=metric_key)
+            meta[cls.STORAGE_META_KEY] = projected
+            locked_account.meta = meta
+            locked_account.save(update_fields=['meta', 'updated_at'])
+
+    @classmethod
+    def release_storage_bytes(cls, user, size_bytes, *, workspace_id=None):
+        size_bytes = int(size_bytes or 0)
+        if size_bytes <= 0:
+            return
+        account = BillingAccountService.get_user_account(user)
+        if not account:
+            return
+        with transaction.atomic():
+            locked_account = BillingAccount.objects.select_for_update().get(pk=account.pk)
+            meta = dict(locked_account.meta or {})
+            used_bytes = int(meta.get(cls.STORAGE_META_KEY) or 0)
+            meta[cls.STORAGE_META_KEY] = max(0, used_bytes - size_bytes)
+            locked_account.meta = meta
+            locked_account.save(update_fields=['meta', 'updated_at'])
 
 
 class BillingAccountService:

@@ -5,6 +5,7 @@ const NAV_ITEMS = [
     { to: '/account/subscription', end: false, icon: '💳', label: 'Подписка' },
     { to: '/account/payments', end: false, icon: '💰', label: 'Платежи' },
     { to: '/account/upgrade', end: false, icon: '🚀', label: 'Сменить тариф' },
+    { to: '/dashboard', end: false, icon: '📊', label: 'Монитор' },
 ];
 
 const activeClass =

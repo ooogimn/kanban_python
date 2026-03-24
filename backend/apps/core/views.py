@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from django.utils.text import slugify
 from .models import Workspace, WorkspaceMember, User
 from .serializers import WorkspaceSerializer, WorkspaceMemberSerializer, UserSerializer
@@ -151,6 +152,29 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         if getattr(instance, '_prefetched_objects_cache', None):
             instance._prefetched_objects_cache = {}
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Удаление workspace с защитой:
+        - Личное пространство удалять нельзя.
+        - Нельзя удалять последнее доступное пространство пользователя.
+        - Для не-staff требуется роль owner/admin в удаляемом пространстве.
+        """
+        workspace = self.get_object()
+        user = request.user
+
+        if workspace.is_personal:
+            raise PermissionDenied('Личное пространство удалить нельзя.')
+
+        if not getattr(user, 'is_superuser', False) and not getattr(user, 'is_staff', False):
+            membership = WorkspaceMember.objects.filter(workspace=workspace, user=user).first()
+            if not membership or membership.role not in (WorkspaceMember.ROLE_OWNER, WorkspaceMember.ROLE_ADMIN):
+                raise PermissionDenied('Удалять пространство может только владелец или администратор.')
+            accessible_count = WorkspaceMember.objects.filter(user=user).values('workspace_id').distinct().count()
+            if accessible_count <= 1:
+                raise PermissionDenied('Нельзя удалить единственное доступное пространство.')
+
+        return super().destroy(request, *args, **kwargs)
     
     @action(detail=True, methods=['get'], permission_classes=[IsWorkspaceMember])
     def members(self, request, pk=None):

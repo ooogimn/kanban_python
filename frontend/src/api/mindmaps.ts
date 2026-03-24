@@ -53,4 +53,21 @@ export const mindmapsApi = {
     const response = await api.post(`/mindmaps/maps/${id}/export_to_file/`);
     return response.data;
   },
+
+  importData: async (id: number, file: File): Promise<MindMapDto> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/mindmaps/maps/${id}/import_data/`, formData);
+    return response.data;
+  },
+
+  uploadMapImage: async (
+    id: number,
+    file: File
+  ): Promise<{ id: number; image_url: string | null; filename: string; size: number }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/mindmaps/maps/${id}/upload_map_image/`, formData);
+    return response.data;
+  },
 };

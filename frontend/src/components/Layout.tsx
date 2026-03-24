@@ -32,7 +32,6 @@ type NavItem = {
 
 /** Personal — всегда доступны (Freemium) */
 const personalNavItems: NavItem[] = [
-  { name: 'Монитор', href: '/dashboard', icon: '📊' },
   { name: 'Задачи', href: '/tasks', icon: '✓' },
   { name: 'Канбан', href: '/kanban', icon: '📋' },
   { name: 'Гант', href: '/gantt', icon: '📈', title: 'Диаграмма Ганта' },

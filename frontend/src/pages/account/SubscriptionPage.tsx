@@ -283,6 +283,8 @@ export default function SubscriptionPage() {
         );
     }
 
+    const enabledPlanFeatures = Object.entries(account.entitlement?.features ?? {}).filter(([, enabled]) => Boolean(enabled));
+
     return (
         <div className="max-w-2xl space-y-6">
             <div>
@@ -323,19 +325,19 @@ export default function SubscriptionPage() {
             </section>
 
             {/* Функции тарифа */}
-            {account.entitlement?.features && Object.keys(account.entitlement.features).length > 0 && (
+            {enabledPlanFeatures.length > 0 && (
                 <section>
                     <h2 className="text-sm font-semibold text-white uppercase tracking-widest mb-3">
                         Функции вашего тарифа
                     </h2>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {Object.entries(account.entitlement.features).map(([key, enabled]) => (
+                            {enabledPlanFeatures.map(([key]) => (
                                 <div
                                     key={key}
-                                    className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${enabled ? 'text-white' : 'text-slate-600'}`}
+                                    className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg text-white"
                                 >
-                                    <span>{enabled ? '✅' : '❌'}</span>
+                                    <span>✅</span>
                                     <span className="capitalize">{key.replace(/_/g, ' ')}</span>
                                 </div>
                             ))}

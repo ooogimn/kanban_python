@@ -4,6 +4,7 @@ import BrandWordmark from './BrandWordmark';
 import PublicIntegrationsHead from './PublicIntegrationsHead';
 import LandingNavigatorWidget from './LandingNavigatorWidget';
 import LandingAiAssistantWidget from './LandingAiAssistantWidget';
+import PublicHeaderInstall from './PublicHeaderInstall';
 
 /**
  * Публичный layout для лендинга и юр-страниц: хедер без сайдбара приложения + полный футер.
@@ -25,7 +26,8 @@ export default function PublicLayout() {
             <img src="/OS_LOGO.png?v=20260320" alt="" className="w-24 h-24 rounded-lg object-contain bg-white/10" />
             <BrandWordmark className="text-3xl font-bold leading-none" />
           </Link>
-          <nav className="flex items-center gap-4">
+          <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+            <PublicHeaderInstall />
             <Link to="/blog" className="text-imperial-muted hover:text-white text-sm font-medium transition-colors">
               Блог
             </Link>

@@ -11,11 +11,25 @@ export function isTauriRuntime(): boolean {
     const { protocol, hostname } = window.location;
     if (protocol === 'tauri:') return true;
     const h = hostname.toLowerCase();
-    if (h === 'tauri.localhost' || h === 'asset.localhost') return true;
+    if (h === 'tauri.localhost' || h === 'asset.localhost' || h === 'ipc.localhost') return true;
   } catch {
     /* ignore */
   }
   return false;
+}
+
+/**
+ * Сборка, сделанная через `tauri build` — в процессе Vite CLI задаёт TAURI_ENV_PLATFORM (windows/darwin/linux).
+ * Надёжнее, чем только runtime: в WebView2 иногда нет __TAURI__ / не тот hostname при первом запросе.
+ */
+export function isTauriBundledBuild(): boolean {
+  const p = import.meta.env.TAURI_ENV_PLATFORM;
+  return typeof p === 'string' && p.length > 0;
+}
+
+/** Десктоп Tauri или его сборка — для API baseURL и текстов ошибок вместо хинтов про localhost:8000 */
+export function isTauriAppContext(): boolean {
+  return isTauriBundledBuild() || isTauriRuntime();
 }
 
 /** Продакшен API (совпадает с api.antexpress.ru на сервере). Переопределение: VITE_API_URL при сборке. */
@@ -24,7 +38,7 @@ const PRODUCTION_API_V1 = 'https://api.antexpress.ru/api/v1';
 export function getRawApiUrl(): string {
   const env = (import.meta.env.VITE_API_URL || '').trim();
   if (env) return env;
-  if (isTauriRuntime()) return PRODUCTION_API_V1;
+  if (isTauriAppContext()) return PRODUCTION_API_V1;
   return '/api/v1';
 }
 

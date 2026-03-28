@@ -5,6 +5,8 @@
 declare module 'react-big-calendar';
 
 interface ImportMetaEnv {
+  /** Задаётся только при `tauri build` / dev через CLI — целевая ОС (windows, darwin, linux). */
+  readonly TAURI_ENV_PLATFORM?: string;
   /** Если задан — переопределяет базу API (и веб, и Tauri). Иначе веб: /api/v1, Tauri: продакшен API. */
   readonly VITE_API_URL?: string;
   /** Прямая ссылка на установщик/страницу релиза Tauri (Windows). Показывается в шапке лендинга. */

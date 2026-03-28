@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosHeaders } from 'axios';
 import { AuthTokens } from '../types';
 import { useUpgradeModalStore } from '../store/upgradeModalStore';
-import { getApiV1Base, isTauriRuntime } from '../lib/apiBase';
+import { getApiV1Base, isTauriAppContext } from '../lib/apiBase';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -48,7 +48,7 @@ class ApiClient {
         if (!error.response) {
           const msg =
             error.code === 'ERR_NETWORK'
-              ? isTauriRuntime()
+              ? isTauriAppContext()
                 ? 'Сервер недоступен. Проверьте интернет и что API отвечает (https://api.antexpress.ru).'
                 : 'Сервер недоступен. Проверьте: 1) Backend запущен (python manage.py runserver); 2) Порт 8000 свободен.'
               : error.message || 'Ошибка сети';

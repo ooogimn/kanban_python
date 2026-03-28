@@ -3,7 +3,7 @@
  * Используется для условного отображения элементов (например, скрыть "Скачать приложение" внутри десктопа).
  */
 
-import { isTauriRuntime } from '../lib/apiBase';
+import { isTauriAppContext } from '../lib/apiBase';
 
 declare global {
   interface Window {
@@ -13,8 +13,8 @@ declare global {
   }
 }
 
-/** Приложение запущено в нативном окне Tauri (desktop). Учитывает host/protocol, не только __TAURI__. */
-export const isTauri = typeof window !== 'undefined' && isTauriRuntime();
+/** Приложение запущено в нативном окне Tauri (desktop). Сборка tauri build + маркеры в WebView. */
+export const isTauri = isTauriAppContext();
 
 /** Приложение открыто как Telegram Mini App (WebApp). */
 export const isTelegramWebApp =

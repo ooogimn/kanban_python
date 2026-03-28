@@ -9,6 +9,7 @@ import { documentsApi } from '../../api/documents';
 import { WikiPage } from '../../types';
 import { useNetworkStatus } from '../NetworkStatus';
 import toast from 'react-hot-toast';
+import { getApiV1Base } from '../../lib/apiBase';
 
 Quill.register('modules/resize', QuillResizeImage);
 
@@ -126,8 +127,7 @@ export default function WikiPageEditor({
   }, []);
 
   const getFileUrl = useCallback(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-    return apiUrl.replace(/\/api\/v1\/?$/, '');
+    return getApiV1Base().replace(/\/api\/v1\/?$/, '');
   }, []);
 
   const onImageChange = useCallback(

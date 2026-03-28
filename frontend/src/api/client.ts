@@ -1,20 +1,14 @@
 import axios, { AxiosInstance, AxiosError, AxiosHeaders } from 'axios';
 import { AuthTokens } from '../types';
 import { useUpgradeModalStore } from '../store/upgradeModalStore';
-
-// В dev с Vite proxy используем относительный URL — один origin, стабильнее и без CORS.
-// Всегда приводим к базе с /api/v1, иначе запросы вроде /auth/me/ дают 404 (нужен /api/v1/auth/me/).
-const raw = (import.meta.env.VITE_API_URL || '/api/v1').trim();
-const API_BASE_URL = raw.endsWith('/api/v1') || raw.endsWith('/api/v1/')
-  ? raw.replace(/\/+$/, '')
-  : raw ? `${raw.replace(/\/+$/, '')}/api/v1` : '/api/v1';
+import { getApiV1Base, isTauriRuntime } from '../lib/apiBase';
 
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_BASE_URL,
+      baseURL: '',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -23,6 +17,8 @@ class ApiClient {
     // Request interceptor - добавляем токен
     this.client.interceptors.request.use(
       (config) => {
+        // baseURL на каждый запрос: в Tauri __TAURI__ может быть ещё не готов при первом импорте модуля
+        config.baseURL = getApiV1Base();
         // Если отправляем FormData, не задаём Content-Type вручную:
         // браузер сам поставит multipart/form-data с корректным boundary.
         if (config.data instanceof FormData) {
@@ -50,9 +46,12 @@ class ApiClient {
 
         // Сеть недоступна (бэкенд не запущен, CORS, таймаут)
         if (!error.response) {
-          const msg = error.code === 'ERR_NETWORK'
-            ? 'Сервер недоступен. Проверьте: 1) Backend запущен (python manage.py runserver); 2) Порт 8000 свободен.'
-            : (error.message || 'Ошибка сети');
+          const msg =
+            error.code === 'ERR_NETWORK'
+              ? isTauriRuntime()
+                ? 'Сервер недоступен. Проверьте интернет и что API отвечает (https://api.antexpress.ru).'
+                : 'Сервер недоступен. Проверьте: 1) Backend запущен (python manage.py runserver); 2) Порт 8000 свободен.'
+              : error.message || 'Ошибка сети';
           return Promise.reject(new Error(msg));
         }
 
@@ -77,7 +76,7 @@ class ApiClient {
           try {
             const refreshToken = localStorage.getItem('refresh_token');
             if (refreshToken) {
-              const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
+              const response = await axios.post(`${getApiV1Base()}/auth/refresh/`, {
                 refresh: refreshToken,
               });
               const { access } = response.data;

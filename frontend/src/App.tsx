@@ -54,6 +54,7 @@ const SubscriptionPage = lazy(() => import('./pages/account/SubscriptionPage'));
 const PaymentsPage = lazy(() => import('./pages/account/PaymentsPage'));
 const UpgradePage = lazy(() => import('./pages/account/UpgradePage'));
 const PaymentReturnPage = lazy(() => import('./pages/account/PaymentReturnPage'));
+const AccountInstallPage = lazy(() => import('./pages/account/AccountInstallPage'));
 const BlogPage = lazy(() => import('./pages/BlogPage'));
 const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 const SaasDashboardPage = lazy(() => import('./pages/saas/SaasDashboardPage'));
@@ -189,6 +190,7 @@ function App() {
             {/* ── Личный кабинет ── */}
             <Route path="account" element={<Suspense fallback={<PageFallback />}><AccountLayout /></Suspense>}>
               <Route index element={<Suspense fallback={<PageFallback />}><ProfilePage /></Suspense>} />
+              <Route path="install" element={<Suspense fallback={<PageFallback />}><AccountInstallPage /></Suspense>} />
               <Route path="subscription" element={<Suspense fallback={<PageFallback />}><SubscriptionPage /></Suspense>} />
               <Route path="payments" element={<Suspense fallback={<PageFallback />}><PaymentsPage /></Suspense>} />
               <Route path="upgrade" element={<Suspense fallback={<PageFallback />}><UpgradePage /></Suspense>} />

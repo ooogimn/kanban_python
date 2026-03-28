@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 const NAV_ITEMS = [
     { to: '/account', end: true, icon: '👤', label: 'Профиль и аккаунт' },
+    { to: '/account/install', end: false, icon: '📲', label: 'Установка приложения' },
     { to: '/account/subscription', end: false, icon: '💳', label: 'Подписка' },
     { to: '/account/payments', end: false, icon: '💰', label: 'Платежи' },
     { to: '/account/upgrade', end: false, icon: '🚀', label: 'Сменить тариф' },

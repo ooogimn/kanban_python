@@ -1,20 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+import { getHttpOriginForWs } from '../lib/apiBase';
 
-/** Базовый URL для WebSocket. В dev с proxy — тот же origin (Vite проксирует /ws на бекенд). */
+/** Базовый URL для WebSocket (wss к тому же хосту, что и API). */
 function getWsBase(): string {
-  const apiUrl = import.meta.env.VITE_API_URL || '/api/v1';
-  if (!apiUrl.startsWith('http')) {
-    // Относительный API (например /api/v1) — WebSocket с того же origin, прокси Vite перешлёт на бекенд
-    if (typeof window !== 'undefined') {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      return `${protocol}//${window.location.host}`;
-    }
-    return 'ws://localhost:3000';
-  }
-  const base = apiUrl.replace(/\/api\/v1\/?$/, '') || 'http://localhost:8000';
-  return base.replace(/^http/, 'ws');
+  const origin = getHttpOriginForWs();
+  return origin.replace(/^http/, 'ws');
 }
 
 export type WebSocketMessage = { type: string; data?: unknown };

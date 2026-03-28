@@ -5,7 +5,8 @@
 declare module 'react-big-calendar';
 
 interface ImportMetaEnv {
-  readonly VITE_API_URL: string;
+  /** Если задан — переопределяет базу API (и веб, и Tauri). Иначе веб: /api/v1, Tauri: продакшен API. */
+  readonly VITE_API_URL?: string;
   /** Прямая ссылка на установщик/страницу релиза Tauri (Windows). Показывается в шапке лендинга. */
   readonly VITE_DESKTOP_DOWNLOAD_URL?: string;
   /** Канонический origin для поля manifest `id` (без слэша в конце), например https://antexpress.ru */

@@ -1,21 +1,16 @@
 /**
  * Layout для SaaS Admin — визуально отличается (красный/тёмный хедер).
  */
+import { useMemo } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-
-const nav = [
-  { name: 'Дашборд', href: '/saas-admin' },
-  { name: 'Планы', href: '/saas-admin/plans' },
-  { name: 'Пользователи', href: '/saas-admin/users' },
-  { name: 'Блог', href: '/saas-admin/blog' },
-  { name: 'Реклама', href: '/saas-admin/ads' },
-  { name: 'Интеграции', href: '/saas-admin/integrations' },
-  { name: 'Админка', href: getDjangoAdminUrl(), external: true },
-];
+import { isTauriRuntime } from '../lib/apiBase';
 
 function getDjangoAdminUrl(): string {
   const env = import.meta.env.VITE_ADMIN_URL;
   if (env && typeof env === 'string') return env.trim().replace(/\/+$/, '') + '/';
+  if (isTauriRuntime()) {
+    return 'https://api.antexpress.ru/admin/';
+  }
   const apiUrl = (import.meta.env.VITE_API_URL || '').trim();
   if (apiUrl) {
     try {
@@ -41,6 +36,18 @@ function getDjangoAdminUrl(): string {
 
 export default function SaasLayout() {
   const location = useLocation();
+  const nav = useMemo(
+    () => [
+      { name: 'Дашборд', href: '/saas-admin' },
+      { name: 'Планы', href: '/saas-admin/plans' },
+      { name: 'Пользователи', href: '/saas-admin/users' },
+      { name: 'Блог', href: '/saas-admin/blog' },
+      { name: 'Реклама', href: '/saas-admin/ads' },
+      { name: 'Интеграции', href: '/saas-admin/integrations' },
+      { name: 'Админка', href: getDjangoAdminUrl(), external: true as const },
+    ],
+    []
+  );
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">

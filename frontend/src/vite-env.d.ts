@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL: string;
   /** Прямая ссылка на установщик/страницу релиза Tauri (Windows). Показывается в шапке лендинга. */
   readonly VITE_DESKTOP_DOWNLOAD_URL?: string;
+  /** Канонический origin для поля manifest `id` (без слэша в конце), например https://antexpress.ru */
+  readonly VITE_PWA_APP_ORIGIN?: string;
 }
 
 interface ImportMeta {

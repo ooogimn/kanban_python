@@ -21,7 +21,8 @@ export default defineConfig({
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
-        orientation: 'portrait',
+        // «any» вместо «portrait» — десктопный Chrome охотнее предлагает установку PWA
+        orientation: 'any',
         scope: '/',
         start_url: '/',
         icons: [

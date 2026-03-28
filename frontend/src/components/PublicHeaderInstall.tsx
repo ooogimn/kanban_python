@@ -1,48 +1,51 @@
-import toast from 'react-hot-toast';
 import { Download } from 'lucide-react';
 import { usePwaInstall } from '../hooks/usePwaInstall';
-
-const PWA_FALLBACK_HINT =
-  'Chrome / Edge: меню «⋯» → «Установить приложение…» или значок установки в адресной строке. Safari (iPhone): «Поделиться» → «На экран «Домой»».';
 
 export default function PublicHeaderInstall() {
   const { canPromptInstall, isInstalled, install } = usePwaInstall();
   const desktopUrl = (import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || '').trim();
 
-  if (isInstalled && !desktopUrl) {
+  const showPwa = !isInstalled && canPromptInstall;
+  const showDesktop = Boolean(desktopUrl);
+
+  if (isInstalled && !showDesktop) {
+    return null;
+  }
+  if (!showPwa && !showDesktop) {
     return null;
   }
 
   return (
-    <>
-      {!isInstalled && (
+    <div
+      className="flex items-center gap-2 sm:gap-3 shrink-0"
+      aria-label="Установка приложения"
+    >
+      {showPwa ? (
         <button
           type="button"
-          title={canPromptInstall ? 'Установить AntExpress как приложение' : PWA_FALLBACK_HINT}
-          onClick={() => {
-            if (canPromptInstall) {
-              void install();
-              return;
-            }
-            toast(PWA_FALLBACK_HINT, { duration: 8000, icon: '📲' });
-          }}
+          title="Установить через браузер (тот же диалог, что в Chrome)"
+          onClick={() => void install()}
           className="text-imperial-muted hover:text-white text-sm font-medium transition-colors whitespace-nowrap"
         >
-          <span className="sm:hidden">PWA</span>
+          <span className="sm:hidden">Установить</span>
           <span className="hidden sm:inline">Установить приложение</span>
         </button>
-      )}
-      {desktopUrl ? (
+      ) : null}
+      {showPwa && showDesktop ? (
+        <span className="hidden sm:block w-px h-4 bg-white/15 shrink-0 self-center" aria-hidden />
+      ) : null}
+      {showDesktop ? (
         <a
           href={desktopUrl}
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-imperial-muted hover:text-white text-sm font-medium transition-colors whitespace-nowrap"
-          title="Нативное приложение для Windows (Tauri)"
+          title="Скачать установщик для Windows (Tauri, отдельное окно как в dev)"
         >
           <Download className="w-4 h-4 shrink-0 opacity-80" aria-hidden />
-          <span className="hidden sm:inline">Windows</span>
+          <span className="sm:hidden">.exe</span>
+          <span className="hidden sm:inline">Приложение Windows</span>
         </a>
       ) : null}
-    </>
+    </div>
   );
 }
